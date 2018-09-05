@@ -42,6 +42,7 @@ from xcp.version import Version
 import version
 from version import *
 from constants import *
+from diskutil import getRemovableDeviceList
 
 MY_PRODUCT_BRAND = PRODUCT_BRAND or PLATFORM_NAME
 
@@ -429,6 +430,16 @@ def performInstallation(answers, ui_package, interactive):
     for r in main_repositories + update_repositories:
         if r.accessor().canEject():
             r.accessor().eject()
+
+    # XCP-ng: so, very unfortunately we don't remember with precision why this was added and
+    # no commit message or comment can help us here.
+    # It may be related to the fact that the "all_repositories" above doesn't contain
+    # the installation CD-ROM or USB stick in the case of a netinstall.
+    # Question: why it is needed at all since there's no repository on the netinstall
+    # installation media?
+    if answers.get('netinstall'):
+        for device in getRemovableDeviceList():
+            util.runCmd2(['eject', device])
 
     if interactive:
         # Add supp packs in a loop
