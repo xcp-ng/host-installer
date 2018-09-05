@@ -89,6 +89,9 @@ def select_repo_source(answers, title, text, require_base_repo=True):
     entries = [ ENTRY_LOCAL ]
 
     default = ENTRY_LOCAL
+    if answers.get('netinstall'):
+        entries = []
+        default = ENTRY_URL
     if len(answers['network-hardware'].keys()) > 0:
         entries += [ ENTRY_URL, ENTRY_NFS ]
 
@@ -136,6 +139,8 @@ def get_url_location(answers, require_base_repo):
             user_field.set(answers['source-address'].getUsername())
         if answers['source-address'].getPassword() is not None:
             passwd_field.set(answers['source-address'].getPassword())
+    else:
+        url_field.set('http://mirrors.xcp-ng.org/netinstall/8.2.1')
 
     done = False
     while not done:
