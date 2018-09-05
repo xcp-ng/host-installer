@@ -156,6 +156,16 @@ Format of 'source' and 'driver-source'
 (Re)Install Elements
 --------------------
 
+  <raid device=dev>
+    <disk>dev1</disk>
+    <disk>dev2</disk>
+  </raid>?
+
+    Specifies the target disks and md device for creating a
+    software RAID 1 array. The md device can then be used in
+    <primary-disk> below. (new in xcp-ng 7.5.0-2 and 7.6)
+
+
   <primary-disk>dev</primary-disk>
 
     Specifies the target disk for installation.
