@@ -181,6 +181,7 @@ def getRepoSequence(ans, repos):
 
 def getFinalisationSequence(ans):
     seq = [
+        Task(importYumAndRpmGpgKeys, A(ans, 'mounts'), []),
         Task(scripts.run_scripts, lambda a: ['packages-installed',  a['mounts']['root']], []),
         Task(writeResolvConf, A(ans, 'mounts', 'manual-hostname', 'manual-nameservers'), []),
         Task(writeMachineID, A(ans, 'mounts'), []),
@@ -1682,6 +1683,33 @@ def isSWRAIDSyncd(primary_disk):
         logger.log("Failed to check if SWRAID device is sync'd due to: " + str(ex))
         return False
 
+def importYumAndRpmGpgKeys(mounts):
+    # Python script that uses yum functions to import the GPG key for our repositories
+    import_yum_keys = """#!/bin/env python
+from __future__ import print_function
+from yum import YumBase
+
+def retTrue(*args, **kwargs):
+    return True
+
+base = YumBase()
+for repo in base.repos.repos.itervalues():
+    if repo.id.startswith('xcp-ng'):
+        print("*** Importing GPG key for repository %s - %s" % (repo.id, repo.name))
+        base.getKeyForRepo(repo, callback=retTrue)
+"""
+    internal_tmp_filepath = '/tmp/import_yum_keys.py'
+    external_tmp_filepath = mounts['root'] + internal_tmp_filepath
+    with open(external_tmp_filepath, 'w') as f:
+        f.write(import_yum_keys)
+    # bind mount /dev, necessary for NSS initialization without which RPM won't work
+    util.bindMount('/dev', "%s/dev" % mounts['root'])
+    try:
+        util.runCmd2(['chroot', mounts['root'], 'python', internal_tmp_filepath])
+        util.runCmd2(['chroot', mounts['root'], 'rpm', '--import', '/etc/pki/rpm-gpg/RPM-GPG-KEY-xcpng'])
+    finally:
+        util.umount("%s/dev" % mounts['root'])
+        os.unlink(external_tmp_filepath)
 
 ################################################################################
 # OTHER HELPERS
