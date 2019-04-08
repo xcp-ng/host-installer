@@ -19,6 +19,9 @@ import xmlrpclib
 
 from snack import *
 
+is_not_restore_fn = lambda a: a['install-type'] != constants.INSTALL_TYPE_RESTORE
+is_using_remote_media_fn = lambda a: 'source-media' in a and a['source-media'] in ['url', 'nfs']
+
 def need_networking(answers):
     if 'source-media' in answers and \
            answers['source-media'] in ['url', 'nfs']:
@@ -28,7 +31,21 @@ def need_networking(answers):
         return (settings['master'] is not None)
     return False
 
-is_using_remote_media_fn = lambda a: 'source-media' in a and a['source-media'] in ['url', 'nfs']
+def get_main_source_location_sequence():
+    uis = tui.installer.screens
+    Step = uicontroller.Step
+
+    return [
+        Step(tui.repo.select_repo_source,
+             args=["Select Installation Source", "Please select the type of source you would like to use for this installation"],
+             predicates=[is_not_restore_fn]),
+        Step(uis.setup_runtime_networking,
+             predicates=[need_networking]),
+        Step(tui.repo.get_source_location,
+             args=[True],
+             predicates=[is_using_remote_media_fn]),
+        Step(tui.repo.verify_source, args=['installation', True], predicates=[is_not_restore_fn])
+    ]
 
 def runMainSequence(results, ram_warning, vt_warning, suppress_extra_cd_dialog):
     """ Runs the main installer sequence and updates results with a
@@ -50,7 +67,6 @@ def runMainSequence(results, ram_warning, vt_warning, suppress_extra_cd_dialog):
 
     is_reinstall_fn = lambda a: a['install-type'] == constants.INSTALL_TYPE_REINSTALL
     is_clean_install_fn = lambda a: a['install-type'] == constants.INSTALL_TYPE_FRESH
-    is_not_restore_fn = lambda a: a['install-type'] != constants.INSTALL_TYPE_RESTORE
 
     def requires_backup(answers):
         return "installation-to-overwrite" in answers and \
@@ -146,18 +162,10 @@ def runMainSequence(results, ram_warning, vt_warning, suppress_extra_cd_dialog):
         Step(uis.select_guest_disks,
              predicates=[is_clean_install_fn]),
         Step(uis.confirm_erase_volume_groups,
-             predicates=[is_clean_install_fn]),
-        Step(tui.repo.select_repo_source,
-             args=["Select Installation Source", "Please select the type of source you would like to use for this installation"],
-             predicates=[is_not_restore_fn]),
-        Step(uis.setup_runtime_networking,
-             predicates=[need_networking]),
+             predicates=[is_clean_install_fn])
+    ] + get_main_source_location_sequence() + [
         Step(uis.master_not_upgraded,
              predicates=[out_of_order_pool_upgrade_fn]),
-        Step(tui.repo.get_source_location,
-             args=[True],
-             predicates=[is_using_remote_media_fn]),
-        Step(tui.repo.verify_source, args=['installation', True], predicates=[is_not_restore_fn]),
         Step(uis.get_root_password,
              predicates=[is_not_restore_fn, not_preserve_settings]),
         Step(uis.get_admin_interface,
@@ -177,7 +185,7 @@ def runMainSequence(results, ram_warning, vt_warning, suppress_extra_cd_dialog):
         Step(uis.set_time,
              predicates=[is_not_restore_fn, not_preserve_settings]),
         Step(uis.confirm_installation),
-        ]
+    ]
     return uicontroller.runSequence(seq, results)
 
 def more_media_sequence(answers):
@@ -199,4 +207,8 @@ def more_media_sequence(answers):
              predicates=[more_media_fn]),
         ]
     uicontroller.runSequence(seq, answers)
+    return answers
+
+def reconfigure_source_location_sequence(answers):
+    uicontroller.runSequence(get_main_source_location_sequence(), answers)
     return answers

@@ -21,7 +21,7 @@ import diskutil
 import hardware
 import version
 import util
-from util import dev_null
+from util import dev_null, elide
 from xcp.version import *
 from xcp import logger
 import cpiofile
@@ -46,7 +46,10 @@ class RepoFormatError(Exception):
 class UnknownPackageType(Exception):
     pass
 
-class ErrorInstallingPackage(Exception):
+class UnrecoverableRepoError(Exception):
+    pass
+
+class RepoSecurityConfigError(Exception):
     pass
 
 class Repository(object):
@@ -335,6 +338,13 @@ gpgkey=file://%s
         # It is created after the yum install phase.
         confdir = os.path.join(root, 'etc', 'dracut.conf.d')
         self._conffile = os.path.join(confdir, 'xs_disable.conf')
+
+        # makedirs throws an exception if the directory exists.
+        # It's the case if the repository is reconfigured by the user
+        # in the installation process. Remove it is a good thing to retrieve a
+        # proper state.
+        shutil.rmtree(confdir, True)
+
         os.makedirs(confdir, 0775)
         with open(self._conffile, 'w') as f:
             print >> f, 'echo Skipping initrd creation during host installation'
@@ -835,11 +845,35 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
         if stderr:
             logger.log("YUM stderr: %s" % stderr.strip())
 
+        shutil.rmtree(os.path.join(mounts['root'], cachedir))
+
         if rv:
             logger.log("Yum exited with %d" % rv)
-            raise ErrorInstallingPackage("Error installing packages")
-
-        shutil.rmtree(os.path.join(mounts['root'], cachedir))
+            # See:
+            # https://github.com/rpm-software-management/urlgrabber/blob/master/urlgrabber/grabber.py#L725
+            # https://github.com/rpm-software-management/yum/blob/master/yum/yumRepo.py#L1709
+            if (stderr.find('repomd.xml.asc: [Errno 14]', 0) >= 0 or
+                stderr.find('repomd.xml: [Errno -1]', 0) >= 0):
+                raise RepoSecurityConfigError(
+"""The authenticity of the repository metadata could not be established.\n
+Aborting installation.\n
+If you are using your own modified (and trusted) repository over a trusted network, you may consider disabling authenticity verification."""
+                )
+            else:
+                # See:
+                # https://github.com/rpm-software-management/rpm/blob/fc51fc39cff7970b10ef4da30f75d1db8eaa8025/lib/package.c#L311
+                # https://github.com/rpm-software-management/rpm/blob/b4c832caed0da0c4b0710cfe2510203a3940c2db/rpmio/rpmlog.c#L190
+                # https://github.com/rpm-software-management/rpm/blob/362c4401979f896de1e69a3e18d33954953912cc/lib/rpmvs.c#L283
+                # https://github.com/rpm-software-management/rpm/blob/362c4401979f896de1e69a3e18d33954953912cc/lib/rpmvs.c#L491
+                res = re.match('^(?:warning|error): (?:/.*/)?([^/]+.rpm): (?:.*) (?:BAD|NOKEY|NOTTRUSTED|NOTFOUND|UNKNOWN)', stderr)
+                if res:
+                    raise RepoSecurityConfigError(
+"""The authenticity of the %s package could not be established.\n
+Aborting installation.\n
+If you are using your own modified (and trusted) repository over a trusted network, you may consider disabling authenticity verification.""" % \
+                        elide(res.groups()[0], 40)
+                    )
+            raise UnrecoverableRepoError("Error installing packages")
 
 def installFromRepos(progress_callback, repos, mounts):
     """Install from a stacked set of repositories"""

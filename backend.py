@@ -33,6 +33,7 @@ import version
 from version import *
 from constants import *
 from diskutil import getRemovableDeviceList
+from uicontroller import REPEAT_STEP
 
 MY_PRODUCT_BRAND = PRODUCT_BRAND or PLATFORM_NAME
 
@@ -284,12 +285,12 @@ def executeSequence(sequence, seq_name, answers, ui, cleanup):
         doCleanup(answers['cleanup'])
         raise
     else:
-        if ui and pd:
-            ui.progress.clearModelessDialog()
-
         if cleanup:
             doCleanup(answers['cleanup'])
             del answers['cleanup']
+    finally:
+        if ui and pd:
+            ui.progress.clearModelessDialog()
 
 def performInstallation(answers, ui_package, interactive):
     logger.log("INPUT ANSWERS DICTIONARY:")
@@ -360,7 +361,6 @@ def performInstallation(answers, ui_package, interactive):
 
     # perform installation:
     prep_seq = getPrepSequence(answers, interactive)
-    answers_pristine = answers.copy()
     executeSequence(prep_seq, "Preparing for installation...", answers, ui_package, False)
 
     # install from main repositories:
@@ -373,13 +373,6 @@ def performInstallation(answers, ui_package, interactive):
         executeSequence(repo_seq, "Reading package information...", ans, ui_package, False)
 
     answers['installed-repos'] = {}
-
-    # A list needs to be used rather than a set since the order of updates is
-    # important.  However, since the same repository might exist in multiple
-    # locations or the same location might be listed multiple times, care is
-    # needed to ensure that there are no duplicates.
-    main_repositories = []
-    update_repositories = []
 
     def add_repos(main_repositories, update_repositories, repos):
         """Add repositories to the appropriate list, ensuring no duplicates,
@@ -398,9 +391,18 @@ def performInstallation(answers, ui_package, interactive):
                 else:
                     repo_list.append(repo)
 
-    # A list of sources coming from the answerfile
-    if 'sources' in answers_pristine:
-        for i in answers_pristine['sources']:
+    main_repos_did_install = False
+    while not main_repos_did_install:
+        # A list needs to be used rather than a set since the order of updates is
+        # important.  However, since the same repository might exist in multiple
+        # locations or the same location might be listed multiple times, care is
+        # needed to ensure that there are no duplicates.
+        main_repositories = []
+        update_repositories = []
+
+        # A list of sources coming from the answerfile
+        if 'sources' in answers:
+            for i in answers['sources']:
             repos = repository.repositoriesFromDefinition(i['media'], i['address'])
             repo_gpgcheck = (answers.get('repo-gpgcheck', True) if i['repo_gpgcheck'] is None
                              else i['repo_gpgcheck'])
@@ -409,21 +411,41 @@ def performInstallation(answers, ui_package, interactive):
             for repo in repos:
                 repo.setRepoGpgCheck(repo_gpgcheck)
                 repo.setGpgCheck(gpgcheck)
+                add_repos(main_repositories, update_repositories, repos)
+
+        # A single source coming from an interactive install
+        if 'source-media' in answers and 'source-address' in answers:
+            repos = repository.repositoriesFromDefinition(answers['source-media'], answers['source-address'])
             add_repos(main_repositories, update_repositories, repos)
 
-    # A single source coming from an interactive install
-    if 'source-media' in answers_pristine and 'source-address' in answers_pristine:
-        repos = repository.repositoriesFromDefinition(answers_pristine['source-media'], answers_pristine['source-address'])
-        add_repos(main_repositories, update_repositories, repos)
+        for media, address in answers['extra-repos']:
+            repos = repository.repositoriesFromDefinition(media, address)
+            add_repos(main_repositories, update_repositories, repos)
 
-    for media, address in answers_pristine['extra-repos']:
-        repos = repository.repositoriesFromDefinition(media, address)
-        add_repos(main_repositories, update_repositories, repos)
+        if not main_repositories or main_repositories[0].identifier() != MAIN_REPOSITORY_NAME:
+            raise RuntimeError("No main repository found")
 
-    if not main_repositories or main_repositories[0].identifier() != MAIN_REPOSITORY_NAME:
-        raise RuntimeError("No main repository found")
+        try:
+            handleMainRepos(main_repositories, answers)
+            main_repos_did_install = True
+        except repository.RepoSecurityConfigError as e:
+            if interactive:
+                # In net install mode, we cannot have more than 1 remote repository.
+                # (The RepoSecurityConfigError exception is only thrown in this mode.)
+                #
+                # It's difficult to handle many repositories because: How can we
+                # retrieve a stable state if all packages of one repository have been
+                # installed successfully but there's been installation errors on other
+                # repositories?
+                assert(answers['source-media'] == 'url')
+                assert(len(all_repositories) == 1)
+                installer = ui_package.installer
+                if installer.screens.reconfigure_repo(str(e)) == REPEAT_STEP:
+                    # Reconfigure.
+                    answers = installer.reconfigure_source_location_sequence(answers)
+                    continue
+            raise
 
-    handleMainRepos(main_repositories, answers)
     if update_repositories:
         handleRepos(update_repositories, answers)
 
@@ -446,7 +468,7 @@ def performInstallation(answers, ui_package, interactive):
     if interactive:
         # Add supp packs in a loop
         while True:
-            media_ans = dict(answers_pristine)
+            media_ans = dict(answers)
             del media_ans['source-media']
             del media_ans['source-address']
             media_ans = ui_package.installer.more_media_sequence(media_ans)
