@@ -101,6 +101,7 @@ class Answerfile:
             else:
                 raise AnswerfileException("Unknown mode, %s" % install_type)
 
+            results['netinstall-gpg-check'] = getBoolAttribute(self.top_node, ['netinstall-gpg-check'], default = True)
             results.update(self.parseCommon())
         elif self.operation == 'restore':
             results = self.parseRestore()

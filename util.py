@@ -32,6 +32,12 @@ random.seed()
 _dev_null_fh = None
 
 ###
+# string helpers
+
+def elide(text, max_len):
+    return text[:max(max_len, 3) - 3] + "..." if len(text) > max_len else text
+
+###
 # directory/tree management
 
 def assertDir(dirname):

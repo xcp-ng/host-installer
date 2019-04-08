@@ -67,7 +67,7 @@ def driver_disk_sequence(answers, driver_repos):
                  predicates=[lambda a: a['source-media'] != 'local']),
         uic.Step(tui.repo.get_source_location,
                  predicates=[lambda a: a['source-media'] != 'local'],
-                 args=[False]),
+                 args=[False, False]),
         uic.Step(tui.repo.confirm_load_repo, args=['driver', driver_repos]),
         ]
     rc = uicontroller.runSequence(seq, answers)
