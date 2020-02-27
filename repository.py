@@ -892,9 +892,10 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir), ignore_errors=True)
 
-def installFromRepos(progress_callback, repos, mounts):
+def installFromRepos(progress_callback, repos, mounts, kernel_alt):
     """Install from a stacked set of repositories"""
 
+    logger.log("installFromRepos, kernel_alt=%s" % (kernel_alt,))
     cachedir = "var/cache/yum/installer"
     for repo in repos:
         repo._accessor.start()
@@ -927,6 +928,8 @@ baseurl=%s
             if repo._targets:
                 targets += repo._targets
         targets = list(set(targets))
+        if kernel_alt:
+            targets.append('kernel-alt')
 
         installFromYum(targets, mounts, progress_callback, cachedir)
         repos[0].enableInitrdCreation()
