@@ -136,6 +136,10 @@ def go(ui, args, answerfile_address, answerfile_script):
         elif opt == "--no-gpgcheck":
             results['gpgcheck'] = False
             logger.log("Yum gpg check of RPMs disabled on command-line")
+        # XCP-ng addition: alternate kernel
+        elif opt == "--kernel-alt":
+            results['kernel-alt'] = True
+            logger.log("Using alternate kernel.")
 
     if (('gpgcheck' in results or 'repo-gpgcheck' in results) and
         (answerfile_address or answerfile_script)):
