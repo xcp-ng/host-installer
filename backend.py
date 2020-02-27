@@ -158,7 +158,7 @@ def getPrepSequence(ans, interactive):
 
 def getMainRepoSequence(ans, repos):
     seq = []
-    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts')], [],
+    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts'), a.get('kernel-alt')], [],
                 progress_scale=100,
                 pass_progress_callback=True,
                 progress_text="Installing %s..." % (", ".join([repo.name() for repo in repos]))))
@@ -202,6 +202,7 @@ def getFinalisationSequence(ans):
                                   'boot-partnum', 'primary-partnum', 'target-boot-mode', 'branding',
                                   'disk-label-suffix', 'bootloader-location', 'write-boot-entry', 'install-type',
                                   'serial-console', 'boot-serial', 'host-config', 'fcoe-interfaces'), []),
+        Task(postInstallAltKernel, A(ans, 'mounts', 'kernel-alt'), []),
         Task(touchSshAuthorizedKeys, A(ans, 'mounts'), []),
         Task(setRootPassword, A(ans, 'mounts', 'root-password'), [], args_sensitive=True),
         Task(setTimeZone, A(ans, 'mounts', 'timezone'), []),
@@ -1677,6 +1678,30 @@ for repo in base.repos.repos.itervalues():
     finally:
         util.umount("%s/dev" % mounts['root'])
         os.unlink(external_tmp_filepath)
+
+def postInstallAltKernel(mounts, kernel_alt):
+    """ Install our alternate kernel. Must be called after the bootloader installation. """
+    if not kernel_alt:
+        logger.log('kernel-alt not installed')
+        return
+
+    util.bindMount("/proc", "%s/proc" % mounts['root'])
+    util.bindMount("/sys", "%s/sys" % mounts['root'])
+    util.bindMount("/dev", "%s/dev" % mounts['root'])
+
+    try:
+        rc, out = util.runCmd2(['chroot', mounts['root'], 'rpm', '-q', 'kernel-alt', '--qf', '%{version}'],
+                               with_stdout=True)
+        version = out
+        # Generate the initrd as it was disabled during initial installation
+        util.runCmd2(['chroot', mounts['root'], 'dracut', '-f', '/boot/initrd-%s.img' % version, version])
+
+        # Update grub
+        util.runCmd2(['chroot', mounts['root'], '/opt/xensource/bin/updategrub.py', 'add', 'kernel-alt', version])
+    finally:
+        util.umount("%s/dev" % mounts['root'])
+        util.umount("%s/sys" % mounts['root'])
+        util.umount("%s/proc" % mounts['root'])
 
 ################################################################################
 # OTHER HELPERS
