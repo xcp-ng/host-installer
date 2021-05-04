@@ -147,7 +147,11 @@ def interfaceUp(interface):
     if rc != 0:
         return False
     inets = filter(lambda x: x.startswith("    inet "), out.split("\n"))
-    return len(inets) == 1
+    if len(inets) == 1:
+        return True
+
+    inet6s = filter(lambda x: x.startswith("    inet6 "), out.split("\n"))
+    return len(inet6s) > 1  # Not just the fe80:: address
 
 # work out if a link is up:
 def linkUp(interface):
@@ -236,15 +240,9 @@ def valid_vlan(vlan):
     return True
 
 def valid_ip_addr(addr):
-    if not re.match('^\d+\.\d+\.\d+\.\d+$', addr):
-        return False
-    els = addr.split('.')
-    if len(els) != 4:
-        return False
-    for el in els:
-        if int(el) > 255:
-            return False
-    return True
+    ipv4_re = '^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}'
+    ipv6_re = '^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))'
+    return re.match(ipv4_re, addr) or re.match(ipv6_re, addr)
 
 def network(ipaddr, netmask):
     ip = map(int,ipaddr.split('.',3))
