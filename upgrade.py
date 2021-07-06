@@ -486,7 +486,7 @@ class ThirdGenUpgrader(Upgrader):
                           os.path.join(mounts['root'], 'etc/sysconfig/network-scripts/interface-rename-data/static-rules.conf')])
 
         net_dict = util.readKeyValueFile(os.path.join(mounts['root'], 'etc/sysconfig/network'))
-        if 'NETWORKING_IPV6' not in net_dict:
+        if net_dict.get('NETWORKING_IPV6', 'no') == 'no':
             nfd = open(os.path.join(mounts['root'], 'etc/sysconfig/network'), 'a')
             nfd.write("NETWORKING_IPV6=no\n")
             nfd.close()
