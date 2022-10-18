@@ -254,6 +254,7 @@ class MainYumRepository(YumRepositoryWithInfo):
         super(MainYumRepository, self).__init__(accessor)
         self._identifier = MAIN_REPOSITORY_NAME
         self.keyfiles = []
+        self.__repo_gpg_check = True
 
         def get_name_version(config_parser, section, name_key, vesion_key):
             name, version = None, None
@@ -325,9 +326,10 @@ class MainYumRepository(YumRepositoryWithInfo):
                 outfh.write(infh.read())
                 return """
 gpgcheck=1
-repo_gpgcheck=1
+repo_gpgcheck=%s
 gpgkey=file://%s
-""" % (key_path)
+""" % (1 if self.__repo_gpg_check else 0,
+       key_path)
             finally:
                 if infh:
                     infh.close()
@@ -363,6 +365,8 @@ gpgkey=file://%s
             branding['product-build'] = self._build_number
         return branding
 
+    def disableRepoGpgCheck(self):
+        self.__repo_gpg_check = False
 
 class UpdateYumRepository(YumRepositoryWithInfo):
     """Represents a Yum repository containing packages and associated meta data for an update."""
