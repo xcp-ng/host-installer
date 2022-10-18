@@ -221,3 +221,8 @@ Installer
   --no-repo-gpgcheck
 
     Disable check of repodata signature, for all yum repositories.
+
+
+  --no-gpgcheck
+
+    Disable check of rpm signature, for all yum repositories.

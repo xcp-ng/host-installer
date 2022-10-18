@@ -48,6 +48,15 @@ Common Attributes
     Validity: any <installation> operation.
 
 
+  gpgcheck="false"
+
+    Disable check of rpm signature (`gpgcheck=0` in `yum.conf`), for
+    all yum repositories that are not Supplemental Packs (none of
+    which are checked). Don't use this for a production server.
+
+    Validity: any <installation> operation.
+
+
 Common Elements
 ---------------
 
