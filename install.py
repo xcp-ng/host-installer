@@ -130,6 +130,9 @@ def go(ui, args, answerfile_address, answerfile_script):
             results['network-backend'] = constants.NETWORK_BACKEND_BRIDGE
         elif opt == "--mount":
             disktools.DeviceMounter.addMountPoints(val)
+        elif opt == "--no-repo-gpgcheck":
+            results['repo-gpgcheck'] = False
+            logger.log("Yum gpg check of repository disabled on command-line")
 
     if boot_console and not serial_console:
         serial_console = boot_console
