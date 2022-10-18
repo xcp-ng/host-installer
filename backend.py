@@ -396,9 +396,11 @@ def performInstallation(answers, ui_package, interactive):
             repos = repository.repositoriesFromDefinition(i['media'], i['address'])
             add_repos(main_repositories, update_repositories, repos)
             repo_gpgcheck = answers.get('repo-gpgcheck', True)
+            gpgcheck = answers.get('gpgcheck', True)
             for repo in repos:
                 if repo in main_repositories:
                     repo.setRepoGpgCheck(repo_gpgcheck)
+                    repo.setGpgCheck(gpgcheck)
 
     # A single source coming from an interactive install
     if 'source-media' in answers_pristine and 'source-address' in answers_pristine:
