@@ -33,6 +33,19 @@ Restore:
   ...
 </restore>
 
+
+Common Attributes
+-----------------
+
+  repo-gpgcheck="false"
+
+    Disable check of repodata signature, for all yum repositories
+    (`repo_gpgcheck=0` in `yum.conf`). Don't use this for a network
+    install of a production server.
+
+    Validity: any <installation> operation.
+
+
 Common Elements
 ---------------
 

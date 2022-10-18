@@ -216,3 +216,8 @@ Installer
   --cc-preparations
 
     Prepare configuration for common criteria security.
+
+
+  --no-repo-gpgcheck
+
+    Disable check of repodata signature, for all yum repositories.

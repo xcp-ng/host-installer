@@ -416,6 +416,11 @@ def performInstallation(answers, ui_package, interactive):
     if not main_repositories or main_repositories[0].identifier() != MAIN_REPOSITORY_NAME:
         raise RuntimeError("No main repository found")
 
+    repo_gpgcheck = answers.get('repo-gpgcheck', True)
+    logger.log("Globally %s repo_gpgcheck" % ("enabling" if repo_gpgcheck else "disabling"))
+    for repo in main_repositories:
+        repo.setRepoGpgCheck(repo_gpgcheck)
+
     handleMainRepos(main_repositories, answers)
     if update_repositories:
         handleRepos(update_repositories, answers)
