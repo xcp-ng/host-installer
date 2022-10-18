@@ -254,6 +254,7 @@ class MainYumRepository(YumRepositoryWithInfo):
         super(MainYumRepository, self).__init__(accessor)
         self._identifier = MAIN_REPOSITORY_NAME
         self.keyfiles = []
+        self.__gpg_check = True
         self.__repo_gpg_check = True
 
         def get_name_version(config_parser, section, name_key, vesion_key):
@@ -325,10 +326,11 @@ class MainYumRepository(YumRepositoryWithInfo):
                 outfh = open(key_path, "w")
                 outfh.write(infh.read())
                 return """
-gpgcheck=1
+gpgcheck=%s
 repo_gpgcheck=%s
 gpgkey=file://%s
-""" % (1 if self.__repo_gpg_check else 0,
+""" % (1 if self.__gpg_check else 0,
+       1 if self.__repo_gpg_check else 0,
        key_path)
             finally:
                 if infh:
@@ -364,6 +366,9 @@ gpgkey=file://%s
         if self._build_number:
             branding['product-build'] = self._build_number
         return branding
+
+    def disableGpgCheck(self):
+        self.__gpg_check = False
 
     def disableRepoGpgCheck(self):
         self.__repo_gpg_check = False

@@ -147,8 +147,12 @@ def go(ui, args, answerfile_address, answerfile_script):
             logger.log("This is a netinstall.")
         # XCP-ng: no-repo-gpgcheck
         elif opt == "--no-repo-gpgcheck":
-            results['no-repo-gpgcheck'] = True
-            logger.log("No gpg check for yum repository.")
+            results['repo-gpgcheck'] = False
+            logger.log("Commandline: no gpg check for yum repository.")
+        # XCP-ng: no-gpgcheck
+        elif opt == "--no-gpgcheck":
+            results['gpgcheck'] = False
+            logger.log("Commandline: no yum gpg check.")
 
     if boot_console and not serial_console:
         serial_console = boot_console

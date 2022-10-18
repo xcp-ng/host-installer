@@ -101,6 +101,7 @@ class Answerfile:
             else:
                 raise AnswerfileException("Unknown mode, %s" % install_type)
 
+            results['gpgcheck'] = getBoolAttribute(self.top_node, ['gpgcheck'], default = True)
             results['repo-gpgcheck'] = getBoolAttribute(self.top_node, ['repo-gpgcheck'], default = True)
             results.update(self.parseCommon())
         elif self.operation == 'restore':
