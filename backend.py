@@ -420,6 +420,10 @@ def performInstallation(answers, ui_package, interactive):
     logger.log("Globally %s repo_gpgcheck" % ("enabling" if repo_gpgcheck else "disabling"))
     for repo in main_repositories:
         repo.setRepoGpgCheck(repo_gpgcheck)
+    gpgcheck = answers.get('gpgcheck', True)
+    logger.log("Globally %s gpgcheck" % ("enabling" if gpgcheck else "disabling"))
+    for repo in main_repositories:
+        repo.setGpgCheck(gpgcheck)
 
     handleMainRepos(main_repositories, answers)
     if update_repositories:

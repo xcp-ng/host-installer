@@ -93,6 +93,7 @@ class Answerfile:
                 raise AnswerfileException("Unknown mode, %s" % install_type)
 
             results['repo-gpgcheck'] = getBoolAttribute(self.top_node, ['repo-gpgcheck'], default=True)
+            results['gpgcheck'] = getBoolAttribute(self.top_node, ['gpgcheck'], default=True)
             results.update(self.parseCommon())
         elif self.operation == 'restore':
             results = self.parseRestore()
