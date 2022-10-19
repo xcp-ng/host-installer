@@ -127,7 +127,7 @@ def select_repo_source(answers, title, text, require_base_repo=True):
 
     return RIGHT_FORWARDS
 
-def get_url_location(answers, require_base_repo):
+def get_url_location(answers, require_base_repo, is_main_install):
     text = "Please enter the URL for your HTTP or FTP repository and, optionally, a username and password"
     url_field = Entry(50)
     user_field = Entry(16)
@@ -165,8 +165,9 @@ def get_url_location(answers, require_base_repo):
 
         gf.add(t, 0, 0, padding=(0, 0, 0, 1))
         gf.add(entry_grid, 0, 1, padding=(0, 0, 0, 1))
-        gf.add(repogpgcheck_cb, 0, 2, padding=(0, 0, 0, 1))
-        gf.add(gpgcheck_cb, 0, 3, padding=(0, 0, 0, 1))
+        if is_main_install:
+            gf.add(repogpgcheck_cb, 0, 2, padding=(0, 0, 0, 1))
+            gf.add(gpgcheck_cb, 0, 3, padding=(0, 0, 0, 1))
         gf.add(bb, 0, 4, growx=1)
 
         button = bb.buttonPressed(gf.runOnce())
@@ -185,12 +186,12 @@ def get_url_location(answers, require_base_repo):
         if len(urlstr) > 0:
             answers['source-address'] = util.URL(urlstr)
             done = interactive_check_repo_def((answers['source-media'], answers['source-address']), require_base_repo)
-        answers['repo-gpgcheck'] = repogpgcheck_cb.selected()
-        answers['gpgcheck'] = gpgcheck_cb.selected()
+        answers['repo-gpgcheck'] = is_main_install and repogpgcheck_cb.selected()
+        answers['gpgcheck'] = is_main_install and gpgcheck_cb.selected()
 
     return RIGHT_FORWARDS
 
-def get_nfs_location(answers, require_base_rep):
+def get_nfs_location(answers, require_base_rep, is_main_install):
     text = "Please enter the server and path of your NFS share (e.g. myserver:/my/directory)"
     label = "NFS Path:"
 
@@ -215,11 +216,11 @@ def get_nfs_location(answers, require_base_rep):
 
     return RIGHT_FORWARDS
 
-def get_source_location(answers, require_base_rep):
+def get_source_location(answers, require_base_rep, is_main_install):
     if answers['source-media'] == 'url':
-        return get_url_location(answers, require_base_rep)
+        return get_url_location(answers, require_base_rep, is_main_install)
     else:
-        return get_nfs_location(answers, require_base_rep)
+        return get_nfs_location(answers, require_base_rep, is_main_install)
 
 def confirm_load_repo(answers, label, installed_repos):
     cap_label = ' '.join(map(lambda a: a.capitalize(), label.split()))
