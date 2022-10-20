@@ -122,6 +122,9 @@ def select_repo_source(answers, title, text, require_base_repo=True):
         if require_base_repo and not interactive_check_repo_def(('local', ''), True):
             return REPEAT_STEP
 
+    answers['repo-gpgcheck'] = entry == 'url'
+    answers['gpgcheck'] = entry == 'url'
+
     return RIGHT_FORWARDS
 
 def get_url_location(answers, require_base_repo):
@@ -132,6 +135,10 @@ def get_url_location(answers, require_base_repo):
     url_text = Textbox(11, 1, "URL:")
     user_text = Textbox(11, 1, "Username:")
     passwd_text = Textbox(11, 1, "Password:")
+    # despite appearing on source dialog, those refer to global flags,
+    # which is OK because the TUI only handles a single "main repo"
+    repogpgcheck_cb = Checkbox("Check authenticity of repository metadata (GPG signatures)", answers['repo-gpgcheck'])
+    gpgcheck_cb = Checkbox("Check authenticity of RPMs (GPG signatures)", answers['gpgcheck'])
 
     if 'source-address' in answers and answers['source-address'] != '':
         url_field.set(answers['source-address'].getPlainURL())
@@ -144,7 +151,7 @@ def get_url_location(answers, require_base_repo):
 
     done = False
     while not done:
-        gf = GridFormHelp(tui.screen, "Specify Repository", 'geturlloc', 1, 3)
+        gf = GridFormHelp(tui.screen, "Specify Repository", 'geturlloc', 1, 5)
         bb = ButtonBar(tui.screen, [ 'Ok', 'Back' ])
         t = TextboxReflowed(50, text)
 
@@ -158,7 +165,9 @@ def get_url_location(answers, require_base_repo):
 
         gf.add(t, 0, 0, padding=(0, 0, 0, 1))
         gf.add(entry_grid, 0, 1, padding=(0, 0, 0, 1))
-        gf.add(bb, 0, 2, growx=1)
+        gf.add(repogpgcheck_cb, 0, 2, padding=(0, 0, 0, 1))
+        gf.add(gpgcheck_cb, 0, 3, padding=(0, 0, 0, 1))
+        gf.add(bb, 0, 4, growx=1)
 
         button = bb.buttonPressed(gf.runOnce())
 
@@ -176,6 +185,8 @@ def get_url_location(answers, require_base_repo):
         if len(urlstr) > 0:
             answers['source-address'] = util.URL(urlstr)
             done = interactive_check_repo_def((answers['source-media'], answers['source-address']), require_base_repo)
+        answers['repo-gpgcheck'] = repogpgcheck_cb.selected()
+        answers['gpgcheck'] = gpgcheck_cb.selected()
 
     return RIGHT_FORWARDS
 
