@@ -269,7 +269,21 @@ class Answerfile:
             if rtype == 'url':
                 address = util.URL(address)
 
-            results['sources'].append({'media': rtype, 'address': address})
+            # workaround getBoolAttribute() not allowing "None" as
+            # default, by using a getStrAttribute() call first to
+            # handle the default situation where the attribute is not
+            # specified
+            repo_gpgcheck = (None if getStrAttribute(i, ['repo-gpgcheck'], default=None) is None
+                             else getBoolAttribute(i, ['repo-gpgcheck']))
+            gpgcheck = (None if getStrAttribute(i, ['gpgcheck'], default=None) is None
+                        else getBoolAttribute(i, ['gpgcheck']))
+
+            results['sources'].append({
+                'media': rtype, 'address': address,
+                'repo_gpgcheck': repo_gpgcheck,
+                'gpgcheck': gpgcheck,
+            })
+            logger.log("parsed source %s" % results['sources'][-1])
 
         return results
 

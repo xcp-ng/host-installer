@@ -402,6 +402,13 @@ def performInstallation(answers, ui_package, interactive):
     if 'sources' in answers_pristine:
         for i in answers_pristine['sources']:
             repos = repository.repositoriesFromDefinition(i['media'], i['address'])
+            repo_gpgcheck = (answers.get('repo-gpgcheck', True) if i['repo_gpgcheck'] is None
+                             else i['repo_gpgcheck'])
+            gpgcheck = (answers.get('gpgcheck', True) if i['gpgcheck'] is None
+                        else i['gpgcheck'])
+            for repo in repos:
+                repo.setRepoGpgCheck(repo_gpgcheck)
+                repo.setGpgCheck(gpgcheck)
             add_repos(main_repositories, update_repositories, repos)
 
     # A single source coming from an interactive install
@@ -415,15 +422,6 @@ def performInstallation(answers, ui_package, interactive):
 
     if not main_repositories or main_repositories[0].identifier() != MAIN_REPOSITORY_NAME:
         raise RuntimeError("No main repository found")
-
-    repo_gpgcheck = answers.get('repo-gpgcheck', True)
-    logger.log("Globally %s repo_gpgcheck" % ("enabling" if repo_gpgcheck else "disabling"))
-    for repo in main_repositories:
-        repo.setRepoGpgCheck(repo_gpgcheck)
-    gpgcheck = answers.get('gpgcheck', True)
-    logger.log("Globally %s gpgcheck" % ("enabling" if gpgcheck else "disabling"))
-    for repo in main_repositories:
-        repo.setGpgCheck(gpgcheck)
 
     handleMainRepos(main_repositories, answers)
     if update_repositories:
