@@ -88,6 +88,15 @@ Common Elements
       file:///path/
       nfs://server:/path/
 
+    Optional attributes for <source> only:
+
+      repo-gpgcheck=bool
+      gpgcheck=bool
+
+        Override the global yum gpgcheck setting, respectively for
+        repodata and RPMs, for this source only.  Only applies to
+        repositories that are not Supplemental Packs (none of which
+        are checked).
 
   <bootloader location="mbr|partition">grub2|extlinux[D]|grub[D]</bootloader>?
 
