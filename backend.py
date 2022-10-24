@@ -395,8 +395,10 @@ def performInstallation(answers, ui_package, interactive):
         for i in answers_pristine['sources']:
             repos = repository.repositoriesFromDefinition(i['media'], i['address'])
             add_repos(main_repositories, update_repositories, repos)
-            repo_gpgcheck = answers.get('repo-gpgcheck', True)
-            gpgcheck = answers.get('gpgcheck', True)
+            repo_gpgcheck = (answers.get('repo-gpgcheck', True) if i['repo_gpgcheck'] is None
+                             else i['repo_gpgcheck'])
+            gpgcheck = (answers.get('gpgcheck', True) if i['gpgcheck'] is None
+                        else i['gpgcheck'])
             for repo in repos:
                 if repo in main_repositories:
                     repo.setRepoGpgCheck(repo_gpgcheck)
