@@ -130,6 +130,10 @@ def go(ui, args, answerfile_address, answerfile_script):
             results['network-backend'] = constants.NETWORK_BACKEND_BRIDGE
         elif opt == "--mount":
             disktools.DeviceMounter.addMountPoints(val)
+        # XCP-ng addition: alternate kernel
+        elif opt == "--kernel-alt":
+            results['kernel-alt'] = True
+            logger.log("Using alternate kernel.")
 
     if boot_console and not serial_console:
         serial_console = boot_console
