@@ -160,7 +160,7 @@ def getMainRepoSequence(ans, repos):
 def getRepoSequence(ans, repos):
     seq = []
     for repo in repos:
-        seq.append(Task(repo.installPackages, A(ans, 'mounts'), [],
+        seq.append(Task(repo.installPackages, A(ans, 'mounts', 'kernel-alt'), [],
                      progress_scale=100,
                      pass_progress_callback=True,
                      progress_text="Installing %s..." % repo.name()))
@@ -170,6 +170,7 @@ def getRepoSequence(ans, repos):
 
 def getFinalisationSequence(ans):
     seq = [
+        Task(importYumAndRpmGpgKeys, A(ans, 'mounts'), []),
         Task(writeResolvConf, A(ans, 'mounts', 'manual-hostname', 'manual-nameservers'), []),
         Task(writeMachineID, A(ans, 'mounts'), []),
         Task(writeKeyboardConfiguration, A(ans, 'mounts', 'keymap'), []),
@@ -191,6 +192,7 @@ def getFinalisationSequence(ans):
                                   'boot-partnum', 'primary-partnum', 'target-boot-mode', 'branding',
                                   'disk-label-suffix', 'bootloader-location', 'write-boot-entry', 'install-type',
                                   'serial-console', 'boot-serial', 'host-config', 'fcoe-interfaces'), []),
+        Task(postInstallAltKernel, A(ans, 'mounts', 'kernel-alt'), []),
         Task(touchSshAuthorizedKeys, A(ans, 'mounts'), []),
         Task(setRootPassword, A(ans, 'mounts', 'root-password'), [], args_sensitive=True),
         Task(setTimeZone, A(ans, 'mounts', 'timezone'), []),
@@ -318,6 +320,10 @@ def performInstallation(answers, ui_package, interactive):
                                                          default_host_config['dom0-mem'])
                 default_host_config['dom0-vcpus'] = xcp.dom0.default_vcpus(hardware.getHostTotalCPUs(),
                                                                            answers['host-config']['dom0-mem'])
+
+            # Set scheduler granularity if necessary.
+            if 'sched-gran' in answers['host-config']:
+                default_host_config['sched-gran'] = answers['host-config']['sched-gran']
         except Exception as e:
             logger.logException(e)
             raise RuntimeError("Failed to get existing installation settings")
@@ -1005,6 +1011,8 @@ def prepFallback(mounts, primary_disk, primary_partnum):
 def buildBootLoaderMenu(mounts, xen_version, xen_kernel_version, boot_config, serial, boot_serial, host_config, primary_disk, disk_label_suffix, fcoe_interfaces):
     short_version = kernelShortVersion(xen_kernel_version)
     common_xen_params = "dom0_mem=%dM,max:%dM" % ((host_config['dom0-mem'],) * 2)
+    if "sched-gran" in host_config:
+        common_xen_params += " %s" % host_config["sched-gran"]
     common_xen_unsafe_params = "watchdog ucode=scan dom0_max_vcpus=1-%d" % host_config['dom0-vcpus']
     safe_xen_params = ("nosmp noreboot noirqbalance no-mce no-bootscrub "
                        "no-numa no-hap no-mmcfg max_cstate=0 "
@@ -1642,6 +1650,57 @@ def touchSshAuthorizedKeys(mounts):
     fh = open("%s/root/.ssh/authorized_keys" % mounts['root'], 'a')
     fh.close()
 
+def importYumAndRpmGpgKeys(mounts):
+    # Python script that uses yum functions to import the GPG key for our repositories
+    import_yum_keys = """#!/bin/env python
+from __future__ import print_function
+from yum import YumBase
+
+def retTrue(*args, **kwargs):
+    return True
+
+base = YumBase()
+for repo in base.repos.repos.itervalues():
+    if repo.id.startswith('xcp-ng'):
+        print("*** Importing GPG key for repository %s - %s" % (repo.id, repo.name))
+        base.getKeyForRepo(repo, callback=retTrue)
+"""
+    internal_tmp_filepath = '/tmp/import_yum_keys.py'
+    external_tmp_filepath = mounts['root'] + internal_tmp_filepath
+    with open(external_tmp_filepath, 'w') as f:
+        f.write(import_yum_keys)
+    # bind mount /dev, necessary for NSS initialization without which RPM won't work
+    util.bindMount('/dev', "%s/dev" % mounts['root'])
+    try:
+        util.runCmd2(['chroot', mounts['root'], 'python', internal_tmp_filepath])
+        util.runCmd2(['chroot', mounts['root'], 'rpm', '--import', '/etc/pki/rpm-gpg/RPM-GPG-KEY-xcpng'])
+    finally:
+        util.umount("%s/dev" % mounts['root'])
+        os.unlink(external_tmp_filepath)
+
+def postInstallAltKernel(mounts, kernel_alt):
+    """ Install our alternate kernel. Must be called after the bootloader installation. """
+    if not kernel_alt:
+        logger.log('kernel-alt not installed')
+        return
+
+    util.bindMount("/proc", "%s/proc" % mounts['root'])
+    util.bindMount("/sys", "%s/sys" % mounts['root'])
+    util.bindMount("/dev", "%s/dev" % mounts['root'])
+
+    try:
+        rc, out = util.runCmd2(['chroot', mounts['root'], 'rpm', '-q', 'kernel-alt', '--qf', '%{version}'],
+                               with_stdout=True)
+        version = out
+        # Generate the initrd as it was disabled during initial installation
+        util.runCmd2(['chroot', mounts['root'], 'dracut', '-f', '/boot/initrd-%s.img' % version, version])
+
+        # Update grub
+        util.runCmd2(['chroot', mounts['root'], 'python', '/usr/lib/python2.7/site-packages/xcp/updategrub.py', 'add', 'kernel-alt', version])
+    finally:
+        util.umount("%s/dev" % mounts['root'])
+        util.umount("%s/sys" % mounts['root'])
+        util.umount("%s/proc" % mounts['root'])
 
 ################################################################################
 # OTHER HELPERS

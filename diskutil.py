@@ -113,6 +113,9 @@ for major in range(72, 80) + range(104, 112):
 for major in range(48, 56):
     disk_nodes += [ (major, x * 8) for x in range(32) ]
 
+# /dev/mmcblk: mmcblk has major 179, each device usually (per kernel) has 7 minors
+disk_nodes += [ (179, x * 8) for x in range(32) ]
+
 def getDiskList():
     # read the partition tables:
     parts = open("/proc/partitions")

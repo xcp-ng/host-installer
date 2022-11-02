@@ -181,7 +181,7 @@ class YumRepository(Repository):
         installed_repos[str(self)] = self
         return installed_repos
 
-    def _installPackages(self, progress_callback, mounts):
+    def _installPackages(self, progress_callback, mounts, kernel_alt):
         assert self._targets is not None
         url = self._accessor.url()
         logger.log("URL: " + str(url))
@@ -203,13 +203,15 @@ baseurl=%s
                 yum_conf.write(repo_config)
 
         self.disableInitrdCreation(mounts['root'])
+        if kernel_alt:
+            self._targets.append('kernel-alt')
         installFromYum(self._targets, mounts, progress_callback, self._cachedir)
         self.enableInitrdCreation()
 
-    def installPackages(self, progress_callback, mounts):
+    def installPackages(self, progress_callback, mounts, kernel_alt=False):
         self._accessor.start()
         try:
-            self._installPackages(progress_callback, mounts)
+            self._installPackages(progress_callback, mounts, kernel_alt)
         finally:
             self._accessor.finish()
 
@@ -236,7 +238,7 @@ class MainYumRepository(YumRepositoryWithInfo):
     """Represents a Yum repository containing the main XenServer installation."""
 
     INFO_FILENAME = ".treeinfo"
-    _targets = ['@xenserver_base', '@xenserver_dom0']
+    _targets = ['xcp-ng-deps']
 
     def __init__(self, accessor):
         super(MainYumRepository, self).__init__(accessor)

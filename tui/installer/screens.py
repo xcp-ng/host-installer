@@ -38,6 +38,28 @@ def selectDefault(key, entries):
             return text, k
     return None
 
+# kernel-alt warning
+def kernel_warning(answers):
+    if answers.get("kernel-alt"):
+        button = snackutil.ButtonChoiceWindowEx(
+            tui.screen,
+            "Alternate kernel",
+            """WARNING: you chose to install our alternative kernel (kernel-alt).
+
+It is based on our main kernel + upstream kernel.org patches, so it should be stable by construction. However it receives less testing than the main kernel.
+
+A boot menu entry for kernel-alt will be added, but we will still boot the main kernel by default.
+
+If kernel-alt works BETTER than the main kernel for you, TELL US so that we may fix the main kernel!
+""",
+            ['Ok', 'Reboot'], width=60)
+
+        if button == 'ok' or button is None:
+            return True
+        else:
+            return EXIT
+    return True
+
 # welcome screen:
 def welcome_screen(answers):
     driver_answers = {'driver-repos': []}
