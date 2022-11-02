@@ -5,6 +5,8 @@ EFI_DIR = /EFI/xenserver
 
 # root of a tree with sm.rpm unpacked
 SM_ROOTDIR =
+# multipath.conf to be taken as a base
+XS_MPATH_CONF = $(SM_ROOTDIR)/etc/multipath.xenserver/multipath.conf
 
 INSTALL = install
 
@@ -80,7 +82,7 @@ install:
  # Generate a multipath configuration from sm's copy, removing
  # the blacklist and blacklist_exception sections.
 	sed 's/\(^[[:space:]]*find_multipaths[[:space:]]*\)yes/\1no/' \
-	    < $(SM_ROOTDIR)/etc/multipath.xenserver/multipath.conf \
+	    < $(XS_MPATH_CONF) \
 	    > $(DESTDIR)/etc/multipath.conf.disabled
 
  # bootloader files
