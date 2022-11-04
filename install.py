@@ -136,6 +136,12 @@ def go(ui, args, answerfile_address, answerfile_script):
         elif opt == "--netinstall":
             results['netinstall'] = True
             logger.log("This is a netinstall.")
+        elif opt == "--no-repo-gpgcheck":
+            results['repo-gpgcheck'] = False
+            logger.log("Yum gpg check of repository disabled on command-line")
+        elif opt == "--no-gpgcheck":
+            results['gpgcheck'] = False
+            logger.log("Yum gpg check of RPMs disabled on command-line")
 
     if boot_console and not serial_console:
         serial_console = boot_console

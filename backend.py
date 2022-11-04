@@ -381,7 +381,7 @@ def performInstallation(answers, ui_package, interactive):
     main_repositories = []
     update_repositories = []
 
-    def add_repos(main_repositories, update_repositories, repos):
+    def add_repos(main_repositories, update_repositories, repos, repo_gpgcheck, gpgcheck):
         """Add repositories to the appropriate list, ensuring no duplicates,
         that the main repository is at the beginning, and that the order of the
         rest is maintained."""
@@ -398,20 +398,28 @@ def performInstallation(answers, ui_package, interactive):
                 else:
                     repo_list.append(repo)
 
+                if repo_list is main_repositories: # i.e., if repo is a "main repository"
+                    repo.setRepoGpgCheck(repo_gpgcheck)
+                    repo.setGpgCheck(gpgcheck)
+
+    default_repo_gpgcheck = answers.get('repo-gpgcheck', True)
+    default_gpgcheck = answers.get('gpgcheck', True)
     # A list of sources coming from the answerfile
     if 'sources' in answers_pristine:
         for i in answers_pristine['sources']:
             repos = repository.repositoriesFromDefinition(i['media'], i['address'])
-            add_repos(main_repositories, update_repositories, repos)
+            repo_gpgcheck = default_repo_gpgcheck if i['repo_gpgcheck'] is None else i['repo_gpgcheck']
+            gpgcheck = default_gpgcheck if i['gpgcheck'] is None else i['gpgcheck']
+            add_repos(main_repositories, update_repositories, repos, repo_gpgcheck, gpgcheck)
 
     # A single source coming from an interactive install
     if 'source-media' in answers_pristine and 'source-address' in answers_pristine:
         repos = repository.repositoriesFromDefinition(answers_pristine['source-media'], answers_pristine['source-address'])
-        add_repos(main_repositories, update_repositories, repos)
+        add_repos(main_repositories, update_repositories, repos, default_repo_gpgcheck, default_gpgcheck)
 
     for media, address in answers_pristine['extra-repos']:
         repos = repository.repositoriesFromDefinition(media, address)
-        add_repos(main_repositories, update_repositories, repos)
+        add_repos(main_repositories, update_repositories, repos, default_repo_gpgcheck, default_gpgcheck)
 
     if not main_repositories or main_repositories[0].identifier() != MAIN_REPOSITORY_NAME:
         raise RuntimeError("No main repository found")
