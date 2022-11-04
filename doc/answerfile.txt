@@ -34,6 +34,29 @@ Restore:
   ...
 </restore>
 
+
+Common Attributes
+-----------------
+
+  repo-gpgcheck="false"
+
+    Disable check of repodata signature (`repo_gpgcheck=0` in
+    `yum.conf`), for all yum repositories that are not Supplemental
+    Packs (none of which are checked). Don't use this for a network
+    install of a production server, and make sure to verify the
+    authenticity of your install media through other means.
+
+    Validity: any <installation> operation.
+
+  gpgcheck="false"
+
+    Disable check of rpm signature (`gpgcheck=0` in `yum.conf`), for
+    all yum repositories that are not Supplemental Packs (none of
+    which are checked). Don't use this for a production server.
+
+    Validity: any <installation> operation.
+
+
 Elements common to all answerfiles, both 'installation' and 'restore'
 ---------------------------------------------------------------------
 
@@ -100,6 +123,15 @@ Elements for 'installation' modes
     The location of the installation repository or a Supplemental
     Pack. There may be multiple 'source' elements.
 
+    Optional attributes for <source> only:
+
+      repo-gpgcheck=bool
+      gpgcheck=bool
+
+        Override the global yum gpgcheck setting, respectively for
+        repodata and RPMs, for this source only.  Only applies to
+        repositories that are not Supplemental Packs (none of which
+        are checked).
 
   <bootloader location="mbr|partition">grub2|extlinux[D]|grub[D]</bootloader>?
 
