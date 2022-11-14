@@ -135,6 +135,11 @@ def go(ui, args, answerfile_address, answerfile_script):
             results['gpgcheck'] = False
             logger.log("Yum gpg check of RPMs disabled on command-line")
 
+    if (('gpgcheck' in results or 'repo-gpgcheck' in results) and
+        (answerfile_address or answerfile_script)):
+        raise RuntimeError("Using answerfile, gpgcheck settings on CLI would be ignored.  "
+                           "Set them inside answerfile instead.")
+
     if boot_console and not serial_console:
         serial_console = boot_console
         boot_serial = True
