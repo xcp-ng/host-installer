@@ -140,7 +140,7 @@ def get_url_location(answers, require_base_repo):
         if answers['source-address'].getPassword() is not None:
             passwd_field.set(answers['source-address'].getPassword())
     else:
-        url_field.set('http://mirrors.xcp-ng.org/netinstall/8.2.1')
+        url_field.set('http://mirrors.xcp-ng.org/netinstall/8.3')
 
     done = False
     while not done:
