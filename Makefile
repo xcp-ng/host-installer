@@ -64,6 +64,7 @@ install:
 	    $(DESTDIR)/etc/modules-load.d \
 	    $(DESTDIR)/etc/depmod.d \
 	    $(DESTDIR)/etc/dracut.conf.d \
+	    $(DESTDIR)/etc/udev/rules.d \
 	    $(DESTDIR)/etc/systemd/system/systemd-udevd.d
 
 	$(INSTALL) -m755 startup/interface-rename-sideway startup/early-blacklist $(DESTDIR)/etc/init.d/
@@ -74,6 +75,7 @@ install:
 	$(INSTALL) -m644 startup/iscsi-modules $(DESTDIR)/etc/modules-load.d/iscsi.conf
 	$(INSTALL) -m644 startup/depmod.conf $(DESTDIR)/etc/depmod.d/
 	$(INSTALL) -m755 startup/preinit startup/S05ramdisk startup/S06mount $(DESTDIR)/$(INSTALLER_DIR)/
+	$(INSTALL) -m644 startup/01-installer.rules $(DESTDIR)/etc/udev/rules.d/
 	$(INSTALL) -m644 startup/systemd-udevd_depmod.conf $(DESTDIR)/etc/systemd/system/systemd-udevd.d/installer.conf
 
  # Generate a multipath configuration from sm's copy, removing
