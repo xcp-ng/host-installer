@@ -176,6 +176,11 @@ def hardware_warnings(answers, ram_warning, vt_warning):
 
 def scan_existing(answers):
     tui.progress.showMessageDialog("Please wait", "Checking for existing products...")
+
+    if 'assemble-raid' in answers:
+        logger.log("Assembling any RAID volumes")
+        rv = util.runCmd2([ 'mdadm', '--assemble', "--scan" ])
+
     answers['installed-products'] = product.find_installed_products()
     answers['upgradeable-products'] = upgrade.filter_for_upgradeable_products(answers['installed-products'])
     answers['backups'] = product.findXenSourceBackups()
@@ -241,16 +246,37 @@ def get_admin_interface_configuration(answers):
     return rc
 
 def get_installation_type(answers):
+
+    # If we were not already told to enable RAID, build a full list of
+    # RAID members, for filtering out from upgradable-products and
+    # backups, and to decide whether to propose to activate existing RAID.
+    raid_members = []
+    if "assemble-raid" not in answers:
+        for disk in diskutil.getQualifiedDiskList():
+            rv, out = util.runCmd2([ 'mdadm', '--examine', disk ], with_stdout=True)
+            if rv == 0 and re.search("Array UUID :", out):
+                raid_members.append(disk)
+
     entries = []
     for x in answers['upgradeable-products']:
+        if x.primary_disk in raid_members:
+            logger.log("%s: disk %s in %s, skipping" % (x, x.primary_disk, raid_members))
+            continue
         entries.append(("Upgrade %s on %s" % (x, diskutil.getHumanDiskLabel(x.primary_disk, short=True)),
                         (x, x.settingsAvailable())))
     for b in answers['backups']:
         if not os.path.exists(b.root_disk):
             logger.log("%s: disk %s not found, skipping" % (b, b.root_disk))
             continue
+        if b.root_disk in raid_members:
+            logger.log("%s: disk %s in %s, skipping" % (b, b.root_disk, raid_members))
+            continue
         entries.append(("Restore %s from backup to %s" % (b, diskutil.getHumanDiskLabel(b.root_disk, short=True)),
                         (b, None)))
+
+    if raid_members:
+        logger.log("Found a MD RAID on: %s" % ", ".join(raid_members))
+        entries.append(("Assemble software RAID volumes", ("RAID", None)))
 
     entries.append( ("Perform clean installation", None) )
 
@@ -336,6 +362,10 @@ def get_installation_type(answers):
     elif isinstance(entry[0], product.XenServerBackup):
         answers['install-type'] = constants.INSTALL_TYPE_RESTORE
         answers['backup-to-restore'], _ = entry
+    elif entry[0] == "RAID":
+        # go rescan for products after assembling RAID volumes
+        answers['assemble-raid'] = True
+        return LEFT_BACKWARDS
 
     return RIGHT_FORWARDS
 
