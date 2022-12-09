@@ -125,6 +125,7 @@ def runMainSequence(results, ram_warning, vt_warning, suppress_extra_cd_dialog):
         Step(uis.hardware_warnings,
              args=[ram_warning, vt_warning],
              predicates=[lambda _:(ram_warning or vt_warning)]),
+        Step(uis.scan_existing),
         Step(uis.overwrite_warning,
              predicates=[only_unupgradeable_products]),
         Step(uis.get_installation_type,

@@ -133,14 +133,6 @@ To setup advanced storage classes press <F10>.
     lvm.deactivateAll()
     del lvm
 
-    tui.progress.showMessageDialog("Please wait", "Checking for existing products...")
-    answers['installed-products'] = product.find_installed_products()
-    answers['upgradeable-products'] = upgrade.filter_for_upgradeable_products(answers['installed-products'])
-    answers['backups'] = product.findXenSourceBackups()
-    tui.progress.clearModelessDialog()
-
-    diskutil.log_available_disks()
-
     # CA-41142, ensure we have at least one network interface and one disk before proceeding
     label = None
     if len(diskutil.getDiskList()) == 0:
@@ -180,6 +172,17 @@ def hardware_warnings(answers, ram_warning, vt_warning):
         )
 
     if button == 'back': return LEFT_BACKWARDS
+    return RIGHT_FORWARDS
+
+def scan_existing(answers):
+    tui.progress.showMessageDialog("Please wait", "Checking for existing products...")
+    answers['installed-products'] = product.find_installed_products()
+    answers['upgradeable-products'] = upgrade.filter_for_upgradeable_products(answers['installed-products'])
+    answers['backups'] = product.findXenSourceBackups()
+    tui.progress.clearModelessDialog()
+
+    diskutil.log_available_disks()
+
     return RIGHT_FORWARDS
 
 def overwrite_warning(answers):
