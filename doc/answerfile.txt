@@ -162,6 +162,15 @@ Common Elements
     Discovery on.
 
 
+  <assemble-raid/>?
+
+    Run `mdadm --assemble --scan` before looking for the device
+    specified in <primary-disk>, <existing-installation>, or
+    <backup-disk>.
+
+    Used to be the default behavior.
+
+
 (Re)Install Elements
 --------------------
 
