@@ -645,7 +645,7 @@ def sorted_disk_list():
     return sorted(set(diskutil.getQualifiedDiskList()),
                   lambda x, y: len(x) == len(y) and cmp(x, y) or (len(x) - len(y)))
 
-def filter_out_raid_member(diskEntries):
+def filter_out_active_raid_member(diskEntries):
     raid_disks = [de for de in diskEntries if diskutil.is_raid(de)]
     raid_slaves = set(member for master in raid_disks for member in diskutil.getDeviceSlaves(master))
     return [e for e in diskEntries if e not in raid_slaves]
@@ -653,7 +653,7 @@ def filter_out_raid_member(diskEntries):
 # select drive to use as the Dom0 disk:
 def select_primary_disk(answers):
     button = None
-    diskEntries = filter_out_raid_member(sorted_disk_list())
+    diskEntries = filter_out_active_raid_member(sorted_disk_list())
     entries = []
     target_is_sr = {}
     min_primary_disk_size = constants.min_primary_disk_size
@@ -757,7 +757,7 @@ def check_sr_space(answers):
     return EXIT
 
 def select_guest_disks(answers):
-    diskEntries = filter_out_raid_member(sorted_disk_list())
+    diskEntries = filter_out_active_raid_member(sorted_disk_list())
 
     # CA-38329: filter out device mapper nodes (except primary disk) as these won't exist
     # at XenServer boot and therefore cannot be added as physical volumes to Local SR.
