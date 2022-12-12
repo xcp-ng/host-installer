@@ -409,6 +409,12 @@ def getHumanDiskName(disk):
         return disk[5:]
     return disk
 
+def getHumanDiskLabel(disk, short=False):
+    (vendor, model, size) = getExtendedDiskInfo(disk)
+    template = "{device} - {size} [{vendor} {model}]" if not short else "{device} - {size}"
+    return template.format(device=getHumanDiskName(disk), size=getHumanDiskSize(size),
+                           vendor=vendor, model=model)
+
 # given a list of disks, work out which ones are part of volume
 # groups that will cause a problem if we install XE to those disks:
 def findProblematicVGs(disks):
