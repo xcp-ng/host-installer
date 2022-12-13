@@ -240,9 +240,11 @@ def get_admin_interface_configuration(answers):
 def get_installation_type(answers):
     entries = []
     for x in answers['upgradeable-products']:
-        entries.append(("Upgrade %s" % str(x), (x, x.settingsAvailable())))
+        entries.append(("Upgrade %s on %s" % (x, diskutil.getHumanDiskLabel(x.primary_disk, short=True)),
+                        (x, x.settingsAvailable())))
     for b in answers['backups']:
-        entries.append(("Restore %s from backup" % str(b), (b, None)))
+        entries.append(("Restore %s from backup to %s" % (b, diskutil.getHumanDiskLabel(b.root_disk, short=True)),
+                        (b, None)))
 
     entries.append( ("Perform clean installation", None) )
 
@@ -632,9 +634,7 @@ def select_primary_disk(answers):
         (boot, root, state, storage, logs) = diskutil.probeDisk(de)
         if storage[0]:
             target_is_sr[de] = True
-        (vendor, model, size) = diskutil.getExtendedDiskInfo(de)
-        stringEntry = "%s - %s [%s %s]" % (diskutil.getHumanDiskName(de), diskutil.getHumanDiskSize(size), vendor, model)
-        e = (stringEntry, de)
+        e = (diskutil.getHumanDiskLabel(de), de)
         entries.append(e)
 
     # we should have at least one disk
@@ -752,9 +752,7 @@ def select_guest_disks(answers):
     # Make a list of entries: (text, item)
     entries = []
     for de in diskEntries:
-        (vendor, model, size) = diskutil.getExtendedDiskInfo(de)
-        entry = "%s - %s [%s %s]" % (diskutil.getHumanDiskName(de), diskutil.getHumanDiskSize(size), vendor, model)
-        entries.append((entry, de))
+        entries.append((diskutil.getHumanDiskLabel(de), de))
 
     text = TextboxReflowed(54, "Which disks would you like to use for %s storage?  \n\nOne storage repository will be created that spans the selected disks.  You can choose not to prepare any storage if you wish to create an advanced configuration after installation." % BRAND_GUEST)
     buttons = ButtonBar(tui.screen, [('Ok', 'ok'), ('Back', 'back')])
