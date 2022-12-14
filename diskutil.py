@@ -165,6 +165,7 @@ def create_raid(configuration):
             # allows for idempotence
             if not os.path.exists(raid_device):
                 for dev in members:
+                    util.runCmd2(['sgdisk', '--zap-all', dev])
                     util.runCmd2(['mdadm', '--zero-superblock', '--force', dev])
                     # let it fail without catching
                 cmd = ['mdadm', '--create', raid_device, '--run', '--metadata=1.0', '--level=mirror',
