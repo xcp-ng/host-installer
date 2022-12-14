@@ -133,6 +133,7 @@ class Answerfile:
         results['preserve-settings'] = False
         results['backup-existing-installation'] = False
 
+        results.update(self.parseRaid())
         results.update(self.parseDisks())
         results.update(self.parseInterface())
         results.update(self.parseRootPassword())
@@ -291,6 +292,16 @@ class Answerfile:
                 address = util.URL(address)
 
             results['extra-repos'].append((rtype, address))
+        return results
+
+    def parseRaid(self):
+        results = {}
+        for raid_node in getElementsByTagName(self.top_node, ['raid']):
+            disk_device = normalize_disk(getStrAttribute(raid_node, ['device'], mandatory=True))
+            disks = [normalize_disk(getText(node)) for node in getElementsByTagName(raid_node, ['disk'])]
+            if 'raid' not in results:
+                results['raid'] = {}
+            results['raid'][disk_device] = disks
         return results
 
     def parseDisks(self):
