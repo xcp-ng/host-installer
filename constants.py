@@ -186,3 +186,4 @@ INIT_SERVICE_FILES = [
 FEATURES_DIR = "/etc/xensource/features"
 HAS_SUPPLEMENTAL_PACKS = os.path.exists(os.path.join(FEATURES_DIR, "supplemental-packs"))
 HAS_RAID_ASSEMBLE = os.path.exists(os.path.join(FEATURES_DIR, "raid-assemble"))
+HAS_RAID_CONFIGURE = os.path.exists(os.path.join(FEATURES_DIR, "raid-configure"))

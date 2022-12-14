@@ -17,6 +17,11 @@ Currently available feature flags are:
     This only impacts the UI, the <assemble-raid/> answerfile
     construct does not need this feature flag.
 
+  raid-configure
+
+    Offer user the ability to configure a software-RAID volume as
+    primary disk.
+
   supplemental-packs
 
     Support installation of supplemental packs after installation of
