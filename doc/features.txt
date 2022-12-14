@@ -1,0 +1,18 @@
+Features flags
+==============
+
+Some host-installer features are not enabled by default, and
+downstream installers can activate them by creating a file in
+/etc/xensource/features/ in their installer filesystem.
+
+Currently available feature flags are:
+
+  raid-assemble
+
+    Detect Linux software-RAID (a.k.a "md") superblocks in disks, adds
+    a choice for the user to activate software RAID volumes, and do
+    not offer the user the ability to upgrade or restore a system on a
+    software-RAID device.
+
+    This only impacts the UI, the <assemble-raid/> answerfile
+    construct does not need this feature flag.

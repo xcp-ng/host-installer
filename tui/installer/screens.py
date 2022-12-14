@@ -251,7 +251,7 @@ def get_installation_type(answers):
     # RAID members, for filtering out from upgradable-products and
     # backups, and to decide whether to propose to activate existing RAID.
     raid_members = []
-    if "assemble-raid" not in answers:
+    if constants.HAS_RAID_ASSEMBLE and "assemble-raid" not in answers:
         for disk in diskutil.getQualifiedDiskList():
             rv, out = util.runCmd2([ 'mdadm', '--examine', disk ], with_stdout=True)
             if rv == 0 and re.search("Array UUID :", out):
