@@ -645,32 +645,28 @@ def select_primary_disk(answers):
                            ['Cancel'])
         return EXIT
 
-    # if only one disk, set default:
-    if len(entries) == 1:
-        answers['primary-disk'] = entries[0][1]
-    else:
-        # default value:
-        default = None
-        if 'primary-disk' in answers:
-            default = selectDefault(answers['primary-disk'], entries)
+    # default value:
+    default = None
+    if 'primary-disk' in answers:
+        default = selectDefault(answers['primary-disk'], entries)
 
-        tui.update_help_line([None, "<F5> more info"])
+    tui.update_help_line([None, "<F5> more info"])
 
-        scroll, height = snackutil.scrollHeight(4, len(entries))
-        (button, entry) = snackutil.ListboxChoiceWindowEx(
-            tui.screen,
-            "Select Primary Disk",
-            """Please select the disk you would like to install %s on (disks with insufficient space are not shown).
+    scroll, height = snackutil.scrollHeight(4, len(entries))
+    (button, entry) = snackutil.ListboxChoiceWindowEx(
+        tui.screen,
+        "Select Primary Disk",
+        """Please select the disk you would like to install %s on (disks with insufficient space are not shown).
 
 You may need to change your system settings to boot from this disk.""" % (MY_PRODUCT_BRAND),
-            entries,
-            ['Ok', 'Software RAID', 'Back'], 55, scroll, height, default, help='pridisk:info',
-            hotkeys={'F5': disk_more_info})
+        entries,
+        ['Ok', 'Software RAID', 'Back'], 55, scroll, height, default, help='pridisk:info',
+        hotkeys={'F5': disk_more_info})
 
-        tui.screen.popHelpLine()
+    tui.screen.popHelpLine()
 
-        # entry contains the 'de' part of the tuple passed in
-        answers['primary-disk'] = entry
+    # entry contains the 'de' part of the tuple passed in
+    answers['primary-disk'] = entry
 
     if 'installation-to-overwrite' in answers:
         answers['target-is-sr'] = target_is_sr[answers['primary-disk']]
