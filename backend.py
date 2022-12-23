@@ -444,7 +444,7 @@ def performInstallation(answers, ui_package, interactive):
         for device in getRemovableDeviceList():
             util.runCmd2(['eject', device])
 
-    if interactive:
+    if interactive and constants.HAS_SUPPLEMENTAL_PACKS:
         # Add supp packs in a loop
         while True:
             media_ans = dict(answers_pristine)

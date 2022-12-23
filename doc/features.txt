@@ -1,0 +1,16 @@
+Features flags
+==============
+
+Some host-installer features are not enabled by default, and
+downstream installers can activate them by creating a file in
+/etc/xensource/features/ in their installer filesystem.
+
+Currently available feature flags are:
+
+  supplemental-packs
+
+    Support installation of supplemental packs after installation of
+    the main product.
+
+    This only impacts the UI, the <source> answerfile construct still
+    allows to include supplemental packs without this feature flag.
