@@ -335,7 +335,7 @@ class Answerfile:
 
         results['sr-type'] = getMapAttribute(self.top_node, ['sr-type', 'srtype'],
                                              [('lvm', SR_TYPE_LVM),
-                                              ('ext', SR_TYPE_EXT)], default='lvm')
+                                              ('ext', SR_TYPE_EXT)], default='ext')
         return results
 
     def parseFCoEInterface(self):
