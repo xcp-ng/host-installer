@@ -318,9 +318,13 @@ Format of 'source' and 'driver-source'
 
     Local SR type.
 
-    Default: lvm if the disks included in local SR storage all have 512 byte
+    Default: ext if the disks included in local SR storage all have 512 byte
              logical blocks, otherwise (when available) the SR type from
              the large-block-capable-sr-type feature
+
+    Note that while it reflects the default choice in the text UI,
+    this differs from XenServer and from XCP-ng releases lower than
+    8.3, where the default was "lvm".
 
 
 Upgrade Elements
