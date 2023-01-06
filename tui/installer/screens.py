@@ -756,16 +756,18 @@ def select_guest_disks(answers):
     cbt = CheckboxTree(3, scroll)
     for (c_text, c_item) in entries:
         cbt.append(c_text, c_item, c_item in currently_selected)
-    txt = "Enable thin provisioning"
-    if len(BRAND_VDI) > 0:
-        txt += " (Optimized storage for %s)" % BRAND_VDI
-    tb = Checkbox(txt, srtype == constants.SR_TYPE_EXT and 1 or 0)
+    rb_title = Textbox(15, 1, "Storage type")
+    rb = RadioBar(tui.screen, (("LVM: block based. May be faster. Thick provisioning.",
+                                constants.SR_TYPE_LVM, srtype == constants.SR_TYPE_LVM),
+                               ("EXT: file based. May be slower. Thin provisioning.",
+                                constants.SR_TYPE_EXT, srtype == constants.SR_TYPE_EXT)))
 
-    gf = GridFormHelp(tui.screen, 'Virtual Machine Storage', 'guestdisk:info', 1, 4)
+    gf = GridFormHelp(tui.screen, 'Virtual Machine Storage', 'guestdisk:info', 1, 5)
     gf.add(text, 0, 0, padding=(0, 0, 0, 1))
     gf.add(cbt, 0, 1, padding=(0, 0, 0, 1))
-    gf.add(tb, 0, 2, padding=(0, 0, 0, 1))
-    gf.add(buttons, 0, 3, growx=1)
+    gf.add(rb_title, 0, 2, padding=(0, 0, 0, 1))
+    gf.add(rb, 0, 3, padding=(0, 0, 0, 1))
+    gf.add(buttons, 0, 4, growx=1)
     gf.addHotKey('F5')
 
     tui.update_help_line([None, "<F5> more info"])
@@ -785,7 +787,7 @@ def select_guest_disks(answers):
     if button == 'back': return LEFT_BACKWARDS
 
     answers['guest-disks'] = cbt.getSelection()
-    answers['sr-type'] = tb.selected() and constants.SR_TYPE_EXT or constants.SR_TYPE_LVM
+    answers['sr-type'] = rb.getSelection()
     answers['sr-on-primary'] = answers['primary-disk'] in answers['guest-disks']
 
     # if the user select no disks for guest storage, check this is what
