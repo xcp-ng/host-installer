@@ -345,7 +345,7 @@ class Answerfile:
         if SR_TYPE_LARGE_BLOCK and len(large_block_disks) > 0:
             default_sr_type = SR_TYPE_LARGE_BLOCK
         else:
-            default_sr_type = SR_TYPE_LVM
+            default_sr_type = SR_TYPE_EXT
 
         sr_type = getMapAttribute(self.top_node,
                                   ['sr-type', 'srtype'],
