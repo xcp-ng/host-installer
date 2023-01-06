@@ -830,13 +830,14 @@ def get_sr_type(answers):
                                    for disk in guest_disks)
 
     if not need_large_block_sr_type or not constants.SR_TYPE_LARGE_BLOCK:
-        srtype = answers.get('sr-type', constants.SR_TYPE_LVM)
-        txt = "Enable thin provisioning"
-        if len(BRAND_VDI) > 0:
-            txt += " (Optimized storage for %s)" % BRAND_VDI
-        tb = Checkbox(txt, srtype == constants.SR_TYPE_EXT and 1 or 0)
-        content = tb
-        get_type = lambda: tb.selected() and constants.SR_TYPE_EXT or constants.SR_TYPE_LVM
+        srtype = answers.get('sr-type', constants.SR_TYPE_EXT)
+        rb = RadioBar(tui.screen, (("EXT: file based. Thin provisioning.",
+                                    constants.SR_TYPE_EXT, srtype == constants.SR_TYPE_EXT),
+                                   ("LVM: block based. Thick provisioning.",
+                                    constants.SR_TYPE_LVM, srtype == constants.SR_TYPE_LVM),
+                                   ))
+        content = rb
+        get_type = lambda: rb.getSelection()
         buttons = ButtonBar(tui.screen, [('Ok', 'ok'), ('Back', 'back')])
     else:
         content = TextboxReflowed(40,
