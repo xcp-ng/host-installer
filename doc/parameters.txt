@@ -126,29 +126,37 @@ Startup
 Installer
 ---------
 
-  --answerfile=ans
+  --answerfile=url
 
     Read answerfile and perform a non-interactive installation
     reporting status using screens.
 
 
-  --rt_answerfile=ans
+  --rt_answerfile=url
 
     Read answerfile and perform a non-interactive installation
     reporting status to the console as text.
 
 
-  --answerfile_generator=script
+  --answerfile_generator=url
 
     Retrieve script, run it and use the output of it as an answerfile.
 
 
-  --answerfile_device[D]=eth|mac|all | --network_device=eth|mac|all
+  --network_device=eth|mac|lacp:members=eth,eth[,eth]*|all
+  --answerfile_device[D]=...
 
     Bring up networking on the given interface to allow access to
     answerfiles.
 
-    Default: all
+    Specification of LACP bonding configures a bond0 interfaces with
+    given members.
+
+    Default: "all" if a non-local URL is specified for any of the above
+    answerfile parameters, else no device is started
+
+    --answerfile_device is a deprecated alias, and accepts the same
+      parameters as --network_device.
 
 
   --map_netdev=eth:d|s:mac|pci[[index]]|ppn

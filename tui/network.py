@@ -126,12 +126,84 @@ def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
 
     vlan_value = int(vlan_field.value()) if vlan_cb.selected() else None
     if bool(dhcp_rb.selected()):
-        answers = NetInterface(NetInterface.DHCP, nic.hwaddr, vlan=vlan_value)
+        answers = NetInterface(NetInterface.DHCP, nic, vlan=vlan_value)
     else:
-        answers = NetInterface(NetInterface.Static, nic.hwaddr, ip_field.value(),
+        answers = NetInterface(NetInterface.Static, nic, ip_field.value(),
                                subnet_field.value(), gateway_field.value(),
-                               dns_field.value(), vlan=vlan_value)
+                               dns_field.value(), vlan=vlan_value, bond_mode=nic.bond_mode, bond_members=nic.bond_members)
     return RIGHT_FORWARDS, answers
+
+def lentry(iface, conf):
+    key = iface
+    tag = netutil.linkUp(iface) and '          ' or ' [no link]'
+    text = "%s (%s)%s" % (iface, conf[iface].hwaddr, tag)
+    return (text, key)
+
+def iface_details(context, conf):
+    tui.update_help_line([' ', ' '])
+    if context:
+        nic = conf[context]
+
+        table = [ ("Name:", nic.name),
+                  ("Driver:", nic.driver),
+                  ("MAC Address:", nic.hwaddr),
+                  ("PCI Details:", nic.pci_string) ]
+        if nic.smbioslabel != "":
+            table.append(("BIOS Label:", nic.smbioslabel))
+
+        snackutil.TableDialog(tui.screen, "Interface Details", *table)
+    else:
+        netifs_all = netutil.getNetifList(include_vlan=True)
+        details = map(lambda x: (x, netutil.ipaddr(x)), filter(netutil.interfaceUp, netifs_all))
+        snackutil.TableDialog(tui.screen, "Networking Details", *details)
+    tui.screen.popHelpLine()
+    return True
+
+def lacp_bond_ui(conf):
+    netifs = conf.keys()
+    netifs.sort(key=netutil.netifSortKey)
+    entries = [lentry(x, conf) for x in netifs]
+
+    text = TextboxReflowed(54, "Select interfaces to create the bond on.")
+    buttons = ButtonBar(tui.screen, [('Create', 'create'), ('Back', 'back')])
+    scroll, _ = snackutil.scrollHeight(3, len(entries))
+    cbt = CheckboxTree(3, scroll)
+    for (c_text, c_item) in entries:
+        cbt.append(c_text, c_item, False)
+    gf = GridFormHelp(tui.screen, 'LACP Bond', '', 1, 4)
+    gf.add(text, 0, 0, padding=(0, 0, 0, 1))
+    gf.add(cbt, 0, 1, padding=(0, 0, 0, 1))
+    gf.add(buttons, 0, 3, growx=1)
+    gf.addHotKey('F5')
+
+    tui.update_help_line([None, "<F5> more info"])
+    loop = True
+    while loop:
+        rc = gf.run()
+        if rc == 'F5':
+            iface_details(cbt.getCurrent(), conf)
+        else:
+            loop = False
+    tui.screen.popWindow()
+    tui.screen.popHelpLine()
+
+    button = buttons.buttonPressed(rc)
+    if button == 'create':
+        selected = cbt.getSelection()
+        if len(selected) < 2:
+            tui.OKDialog("bad selection", "Network interface bonding needs at least two interfaces")
+            return lacp_bond_ui(conf)
+
+        txt = 'Create a LACP bond with members %s?  This choice cannot be rolled back.' % (
+            ", ".join(selected))
+        title = 'LACP bond creation'
+        confirmation = snackutil.ButtonChoiceWindowEx(tui.screen, title, txt,
+                                                      ('Ok', 'Cancel'), 40, default=1)
+        if confirmation == 'ok':
+            netutil.configure_bonding_interface(conf, 'bond0', "lacp", tuple(selected))
+
+    # always back to iface selection
+    return REPEAT_STEP, None
 
 def select_netif(text, conf, offer_existing=False, default=None):
     """ Display a screen that displays a choice of network interfaces to the
@@ -140,7 +212,7 @@ def select_netif(text, conf, offer_existing=False, default=None):
     """
 
     netifs = conf.keys()
-    netifs.sort(lambda l, r: int(l[3:]) - int(r[3:]))
+    netifs.sort(key=netutil.netifSortKey)
 
     if default not in netifs:
         # find first link that is up
@@ -150,37 +222,14 @@ def select_netif(text, conf, offer_existing=False, default=None):
                 default = iface
                 break
 
-    def lentry(iface):
-        key = iface
-        tag = netutil.linkUp(iface) and '          ' or ' [no link]'
-        text = "%s (%s)%s" % (iface, conf[iface].hwaddr, tag)
-        return (text, key)
-
-    def iface_details(context):
-        tui.update_help_line([' ', ' '])
-        if context:
-            nic = conf[context]
-
-            table = [ ("Name:", nic.name),
-                      ("Driver:", nic.driver),
-                      ("MAC Address:", nic.hwaddr),
-                      ("PCI Details:", nic.pci_string) ]
-            if nic.smbioslabel != "":
-                table.append(("BIOS Label:", nic.smbioslabel))
-
-            snackutil.TableDialog(tui.screen, "Interface Details", *table)
-        else:
-            netifs_all = netutil.getNetifList(include_vlan=True)
-            details = map(lambda x: (x, netutil.ipaddr(x)), filter(netutil.interfaceUp, netifs_all))
-            snackutil.TableDialog(tui.screen, "Networking Details", *details)
-        tui.screen.popHelpLine()
-        return True
+    def iface_details_with_conf(context):
+        return iface_details(context, conf)
 
     def update(listbox):
         old = listbox.current()
         for item in listbox.item2key.keys():
             if item:
-                text, _ = lentry(item)
+                text, _ = lentry(item, conf)
                 listbox.replace(text, item)
         listbox.setCurrent(old)
         return True
@@ -193,16 +242,21 @@ def select_netif(text, conf, offer_existing=False, default=None):
     else:
         netif_list = []
         if default:
-            def_iface = lentry(default)
-    netif_list += [lentry(x) for x in netifs]
+            def_iface = lentry(default, conf)
+    netif_list += [lentry(x, conf) for x in netifs]
+    propose_lacp = ((len([netif for netif in netifs if netif.startswith("eth")]) >= 2) and
+                    (len([netif for netif in netifs if netif.startswith("bond")]) == 0))
+    buttons = ['Ok', 'Create LACP Bond', 'Back'] if propose_lacp else ['Ok', 'Back']
     scroll, height = snackutil.scrollHeight(6, len(netif_list))
     rc, entry = snackutil.ListboxChoiceWindowEx(tui.screen, "Networking", text, netif_list,
-                                        ['Ok', 'Back'], 45, scroll, height, def_iface, help='selif:info',
-                                        hotkeys={'F5': iface_details}, timeout_ms=5000, timeout_cb=update)
+                                        buttons, 45, scroll, height, def_iface, help='selif:info',
+                                        hotkeys={'F5': iface_details_with_conf}, timeout_ms=5000, timeout_cb=update)
 
     tui.screen.popHelpLine()
 
     if rc == 'back': return LEFT_BACKWARDS, None
+    if rc == 'create lacp bond': return lacp_bond_ui(conf)
+
     return RIGHT_FORWARDS, entry
 
 def requireNetworking(answers, defaults=None, msg=None, keys=['net-admin-interface', 'net-admin-configuration']):
@@ -248,6 +302,8 @@ def requireNetworking(answers, defaults=None, msg=None, keys=['net-admin-interfa
         if 'reuse-networking' in answers and answers['reuse-networking']:
             return RIGHT_FORWARDS
 
+        logger.log("answers['interface'] = {!r}".format(answers['interface']))
+        # FIXME if this is a tuple we have a bond, what to do ?
         direction, conf = get_iface_configuration(nethw[answers['interface']], txt,
                                                   defaults=defaults, include_dns=True)
         if direction == RIGHT_FORWARDS:
@@ -262,13 +318,8 @@ def requireNetworking(answers, defaults=None, msg=None, keys=['net-admin-interfa
             def_iface = defaults[interface_key]
         if config_key in defaults:
             def_conf = defaults[config_key]
-    if len(nethw.keys()) > 1 or netutil.networkingUp():
-        seq = [ uicontroller.Step(select_interface, args=[def_iface, msg]),
-                uicontroller.Step(specify_configuration, args=[None, def_conf]) ]
-    else:
-        text = "%s Setup needs network access to continue.\n\nHow should networking be configured at this time?" % (version.PRODUCT_BRAND or version.PLATFORM_NAME)
-        conf_dict['interface'] = nethw.keys()[0]
-        seq = [ uicontroller.Step(specify_configuration, args=[text, def_conf]) ]
+    seq = [ uicontroller.Step(select_interface, args=[def_iface, msg]),
+            uicontroller.Step(specify_configuration, args=[None, def_conf]) ]
     direction = uicontroller.runSequence(seq, conf_dict)
 
     if direction == RIGHT_FORWARDS and 'config' in conf_dict:

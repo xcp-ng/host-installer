@@ -20,9 +20,14 @@ class NIC:
         self.driver = "%s (%s)" % (nic_dict.get("Driver", ""),
                                    nic_dict.get("Driver version", ""))
         self.smbioslabel = nic_dict.get("SMBIOS Label", "")
+        # those labels cannot come from biosdevname, but are added
+        # here to avoid adding another API
+        self.bond_mode = nic_dict.get("Bond mode", None)
+        self.bond_members = nic_dict.get("Bond members", None)
 
     def __repr__(self):
-        return "<NIC: %s (%s)>" % (self.name, self.hwaddr)
+        return "<NIC: %s (%s)%s>" % (self.name, self.hwaddr,
+                                     (", bonding=" + self.bond_mode) if self.bond_mode else "")
 
 def scanConfiguration():
     """ Returns a dictionary of string -> NIC with a snapshot of the NIC
@@ -35,31 +40,67 @@ def scanConfiguration():
     """
     conf = {}
     nics = []
+    slave_nics = []
 
     for nif in getNetifList():
         if nif not in diskutil.ibft_reserved_nics:
             nics.append(nif)
 
+    # identify any LACP interface previously configured (commandline)
+    SYSVIRTUALNET = "/sys/devices/virtual/net"
+    virtual_devs = os.listdir(SYSVIRTUALNET)
+    for iface in virtual_devs:
+        mode_file = os.path.join(SYSVIRTUALNET, iface, "bonding/mode")
+        if not os.path.exists(mode_file):
+            logger.log("scanConfiguration: no file %r" % mode_file)
+            continue            # not a bonding iface
+        with open(mode_file) as fd:
+            lines = fd.readlines()
+            assert len(lines) == 1
+            if lines[0].strip() != "802.3ad 4":
+                logger.log("scanConfiguration: wrong bonding mode %r != '802.3ad 4'" % lines[0])
+                continue        # not a LACP iface
+        with open(os.path.join(SYSVIRTUALNET, iface, "bonding/slaves")) as fd:
+            lines = fd.readlines()
+            assert len(lines) == 1
+            bond_members = tuple(lines[0].strip().split())
+        with open(os.path.join(SYSVIRTUALNET, iface, "address")) as fd:
+            lines = fd.readlines()
+            assert len(lines) == 1
+            mac = lines[0].strip()
+        slave_nics.extend(bond_members)
+        conf[iface] = NIC({"Kernel name": iface,
+                           "Assigned MAC": mac,
+                           "Bond mode": "lacp",
+                           "Bond members": bond_members,
+                           })
+    logger.log("scanConfiguration: bonding interfaces: {}, slaves: {}".format(conf.keys(), slave_nics))
+
     for nic in all_devices_all_names().values():
         name = nic.get("Kernel name", "")
-        if name in nics:
-            conf[name] = NIC(nic)
+        if name not in nics:
+            logger.log("scanConfiguration: {} not in nics".format(name))
+            continue
+        if name in slave_nics:
+            logger.log("scanConfiguration: {} in slave_nics".format(name))
+            continue
+        conf[name] = NIC(nic)
 
     return conf
+
+def netifSortKey(interface):
+    m = re.match(r"([a-z]+)(\d+)((?:\..+)?)", interface)
+    return m.groups()
 
 def getNetifList(include_vlan=False):
     all = os.listdir("/sys/class/net")
 
     def ethfilter(interface, include_vlan):
-        return interface.startswith("eth") and (interface.isalnum() or
-                                    (include_vlan and "." in interface))
-
-    def rankValue(ethx):
-        iface, vlan = splitInterfaceVlan(ethx)
-        return (int(iface.strip('eth'))*10000 + (int(vlan) if vlan else -1))
+        return ((interface.startswith("eth") or interface.startswith("bond")) and
+                (interface.isalnum() or (include_vlan and "." in interface)))
 
     relevant = filter(lambda x: ethfilter(x, include_vlan), all)
-    relevant.sort(lambda l, r: rankValue(l) - rankValue(r))
+    relevant.sort(key=netifSortKey)
     return relevant
 
 # writes an 'interfaces' style file given a network configuration object list
@@ -104,16 +145,14 @@ def writeResolverFile(configuration, filename):
 interface_up = {}
 
 # simple wrapper for calling the local ifup script:
-def splitInterfaceVlan(interface):
+def splitInterfaceVlan(interface_vlan):
     if "." in interface:
         return interface.split(".", 1)
     return interface, None
 
-def ifup(interface):
-    device, vlan = splitInterfaceVlan(interface)
-    assert device in getNetifList()
-    interface_up[interface] = True
-    return util.runCmd2(['ifup', interface])
+def ifup(interface_vlan):
+    interface_up[interface_vlan] = True
+    return util.runCmd2(['ifup', interface_vlan])
 
 def ifdown(interface):
     if interface in interface_up:
@@ -169,8 +208,8 @@ def networkingUp():
     return False
 
 # make a string to help users identify a network interface:
-def getPCIInfo(interface):
-    interface, vlan = splitInterfaceVlan(interface)
+def getPCIInfo(interface_vlan):
+    interface, vlan = splitInterfaceVlan(interface_vlan)
     info = "<Information unknown>"
     devpath = os.path.realpath('/sys/class/net/%s/device' % interface)
     slot = devpath[len(devpath) - 7:]
@@ -192,8 +231,8 @@ def getPCIInfo(interface):
 
     return info
 
-def getDriver(interface):
-    interface, vlan = splitInterfaceVlan(interface)
+def getDriver(interface_vlan):
+    interface, vlan = splitInterfaceVlan(interface_vlan)
     return os.path.basename(os.path.realpath('/sys/class/net/%s/device/driver' % interface))
 
 def __readOneLineFile__(filename):
@@ -275,6 +314,23 @@ class NetDevices:
 
         output += '</net-devices>\n'
         return output
+
+def configure_bonding_interface(nethw, bond_iface, bond_mode, bond_members):
+    assert len(bond_members) >= 2
+    for devname in bond_members:
+        assert devname in nethw
+
+    # forge a NIC definition for the LACP interface
+    ref_devname = bond_members[0]
+    nethw[bond_iface] = NIC({"Kernel name": bond_iface,
+                             "Assigned MAC": nethw[ref_devname].hwaddr,
+                             "Bond mode": bond_mode,
+                             "Bond members": bond_members,
+                             })
+
+    # remove LACP member NIC definitions from the list
+    for devname in bond_members:
+        del nethw[devname]
 
 ### EA-1069
 

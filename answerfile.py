@@ -391,24 +391,58 @@ class Answerfile:
 
         return results
 
+    def parseBonding(self, nethw):
+        nodes = getElementsByTagName(self.top_node, ['bonding'])
+        if len(nodes) > 1:
+            raise AnswerfileException("<bonding> must appear only once")
+        if nodes:
+            node = nodes[0]
+            bond_name = getStrAttribute(node, ['name'], mandatory=True)
+            if bond_name != "bond0":
+                raise AnswerfileException("<bonding> name must be 'bond0'")
+
+            bond_mode = getStrAttribute(node, ['mode'], mandatory=True)
+            if bond_mode != "lacp":
+                raise AnswerfileException("<bonding> mode must be 'lacp'")
+
+            bond_members_str = getStrAttribute(node, ['members'], mandatory=True)
+            bond_members = bond_members_str.split(",")
+            if len(bond_members) < 2:
+                raise AnswerfileException("<bonding> members must be at least two")
+            for member in bond_members:
+                if member not in nethw:
+                    raise AnswerfileException("<bonding> member %r not in detected NICs" % (member,))
+
+            netutil.configure_bonding_interface(nethw, bond_name, bond_mode, bond_members)
+
     def parseInterface(self):
         results = {}
         node = getElementsByTagName(self.top_node, ['admin-interface'], mandatory=True)[0]
         nethw = netutil.scanConfiguration()
-        if_hwaddr = None
+        self.parseBonding(nethw)
 
         if_name = getStrAttribute(node, ['name'])
-        if if_name and if_name in nethw:
-            if_hwaddr = nethw[if_name].hwaddr
-        else:
-            if_hwaddr = getStrAttribute(node, ['hwaddr'])
-            if if_hwaddr:
-                matching_list = filter(lambda x: x.hwaddr == if_hwaddr.lower(), nethw.values())
-                if len(matching_list) == 1:
-                    if_name = matching_list[0].name
-        if not if_name and not if_hwaddr:
-             raise AnswerfileException("<admin-interface> tag must have one of 'name' or 'hwaddr'")
+        if_hwaddr = getStrAttribute(node, ['hwaddr'])
+        if not (bool(if_name) ^ bool(if_hwaddr)):
+            raise AnswerfileException("<admin-interface> tag must have exactly one of 'name' or 'hwaddr'")
 
+        if if_name:
+            if if_name not in nethw:
+                raise AnswerfileException('<admin-interface name="%s">: unknown interface, have %s' % (
+                    if_name, ", ".join(nethw.keys())))
+            if_hwaddr = nethw[if_name].hwaddr
+        elif if_hwaddr:
+            matching_list = [x for x in  nethw.values() if x.hwaddr == if_hwaddr.lower()]
+            if len(matching_list) != 1:
+                raise AnswerfileException('<admin-interface hwaddr="%s">: cannot identify interface, have %s' % (
+                    if_hwaddr, ", ".join(nethw.values())))
+            if_name = matching_list[0].name
+        else:
+            assert False # previous test protects us
+
+        nic = netutil.NIC({"Kernel name": if_name,
+                           "Assigned MAC": if_hwaddr,
+                           })
         results['net-admin-interface'] = if_name
 
         proto = getStrAttribute(node, ['proto'], mandatory=True)
@@ -416,11 +450,11 @@ class Answerfile:
             ip = getText(getElementsByTagName(node, ['ip', 'ipaddr'], mandatory=True)[0])
             subnet = getText(getElementsByTagName(node, ['subnet-mask', 'subnet'], mandatory=True)[0])
             gateway = getText(getElementsByTagName(node, ['gateway'], mandatory=True)[0])
-            results['net-admin-configuration'] = NetInterface(NetInterface.Static, if_hwaddr, ip, subnet, gateway, dns=None)
+            results['net-admin-configuration'] = NetInterface(NetInterface.Static, nic, ip, subnet, gateway, dns=None)
         elif proto == 'dhcp':
-            results['net-admin-configuration'] = NetInterface(NetInterface.DHCP, if_hwaddr)
+            results['net-admin-configuration'] = NetInterface(NetInterface.DHCP, nic)
         else:
-            results['net-admin-configuration'] = NetInterface(None, if_hwaddr)
+            results['net-admin-configuration'] = NetInterface(None, nic)
 
         protov6 = getStrAttribute(node, ['protov6'])
         if protov6 == 'static':

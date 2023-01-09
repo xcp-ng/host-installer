@@ -51,15 +51,25 @@ def configureNetworking(ui, device, config):
 
     nethw = netutil.scanConfiguration()
     netcfg = {}
-    for i in nethw:
-        if (device == i or device == nethw[i].hwaddr) and mode == 'static':
-            netcfg[i] = NetInterface(NetInterface.Static, nethw[i].hwaddr,
-                                     config_dict['ip'], config_dict['netmask'],
-                                     config_dict['gateway'], config_dict['dns'],
-                                     config_dict['domain'], config_dict['vlan'])
+
+    if device.startswith("lacp:"):
+        bond_mode, bond_config = device.split(":", 1)
+        device = "bond0"
+        assert bond_config.startswith("members=")
+        k, v = bond_config.split("=", 1)
+        bond_members = v.split(",")
+        netutil.configure_bonding_interface(nethw, device, "lacp", bond_members)
+
+    for devname, nic in nethw.items():
+        if (device == devname or device == nic.hwaddr) and mode == 'static':
+            netcfg[devname] = NetInterface(NetInterface.Static, nic,
+                                           config_dict['ip'], config_dict['netmask'],
+                                           config_dict['gateway'], config_dict['dns'],
+                                           config_dict['domain'], config_dict['vlan'],
+                                           bond_mode=nic.bond_mode, bond_members=nic.bond_members)
         else:
-            netcfg[i] = NetInterface(NetInterface.DHCP, nethw[i].hwaddr,
-                                     vlan=config_dict['vlan'])
+            netcfg[devname] = NetInterface(NetInterface.DHCP, nic,
+                                           vlan=config_dict['vlan'])
 
     netutil.writeNetInterfaceFiles(netcfg)
     netutil.writeResolverFile(netcfg, '/etc/resolv.conf')
@@ -67,7 +77,7 @@ def configureNetworking(ui, device, config):
     iface_to_start = []
     if device == 'all':
         iface_to_start.extend(netcfg.keys())
-    elif device.startswith('eth'):
+    elif device.startswith('eth') or device.startswith('bond'):
         if device in nethw:
             iface_to_start.append(device)
     else:
