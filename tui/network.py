@@ -133,6 +133,32 @@ def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
                                dns_field.value(), vlan=vlan_value, bond_mode=nic.bond_mode, bond_members=nic.bond_members)
     return RIGHT_FORWARDS, answers
 
+def lentry(iface, conf):
+    key = iface
+    tag = netutil.linkUp(iface) and '          ' or ' [no link]'
+    text = "%s (%s)%s" % (iface, conf[iface].hwaddr, tag)
+    return (text, key)
+
+def iface_details(context, conf):
+    tui.update_help_line([' ', ' '])
+    if context:
+        nic = conf[context]
+
+        table = [ ("Name:", nic.name),
+                  ("Driver:", nic.driver),
+                  ("MAC Address:", nic.hwaddr),
+                  ("PCI Details:", nic.pci_string) ]
+        if nic.smbioslabel != "":
+            table.append(("BIOS Label:", nic.smbioslabel))
+
+        snackutil.TableDialog(tui.screen, "Interface Details", *table)
+    else:
+        netifs_all = netutil.getNetifList(include_vlan=True)
+        details = map(lambda x: (x, netutil.ipaddr(x)), filter(netutil.interfaceUp, netifs_all))
+        snackutil.TableDialog(tui.screen, "Networking Details", *details)
+    tui.screen.popHelpLine()
+    return True
+
 def select_netif(text, conf, offer_existing=False, default=None):
     """ Display a screen that displays a choice of network interfaces to the
     user, with 'text' as the informative text as the data, and conf being the
@@ -150,37 +176,14 @@ def select_netif(text, conf, offer_existing=False, default=None):
                 default = iface
                 break
 
-    def lentry(iface):
-        key = iface
-        tag = netutil.linkUp(iface) and '          ' or ' [no link]'
-        text = "%s (%s)%s" % (iface, conf[iface].hwaddr, tag)
-        return (text, key)
-
-    def iface_details(context):
-        tui.update_help_line([' ', ' '])
-        if context:
-            nic = conf[context]
-
-            table = [ ("Name:", nic.name),
-                      ("Driver:", nic.driver),
-                      ("MAC Address:", nic.hwaddr),
-                      ("PCI Details:", nic.pci_string) ]
-            if nic.smbioslabel != "":
-                table.append(("BIOS Label:", nic.smbioslabel))
-
-            snackutil.TableDialog(tui.screen, "Interface Details", *table)
-        else:
-            netifs_all = netutil.getNetifList(include_vlan=True)
-            details = map(lambda x: (x, netutil.ipaddr(x)), filter(netutil.interfaceUp, netifs_all))
-            snackutil.TableDialog(tui.screen, "Networking Details", *details)
-        tui.screen.popHelpLine()
-        return True
+    def iface_details_with_conf(context):
+        return iface_details(context, conf)
 
     def update(listbox):
         old = listbox.current()
         for item in listbox.item2key.keys():
             if item:
-                text, _ = lentry(item)
+                text, _ = lentry(item, conf)
                 listbox.replace(text, item)
         listbox.setCurrent(old)
         return True
@@ -193,12 +196,13 @@ def select_netif(text, conf, offer_existing=False, default=None):
     else:
         netif_list = []
         if default:
-            def_iface = lentry(default)
-    netif_list += [lentry(x) for x in netifs]
+            def_iface = lentry(default, conf)
+    netif_list += [lentry(x, conf) for x in netifs]
     scroll, height = snackutil.scrollHeight(6, len(netif_list))
-    rc, entry = snackutil.ListboxChoiceWindowEx(tui.screen, "Networking", text, netif_list,
-                                        ['Ok', 'Back'], 45, scroll, height, def_iface, help='selif:info',
-                                        hotkeys={'F5': iface_details}, timeout_ms=5000, timeout_cb=update)
+    rc, entry = snackutil.ListboxChoiceWindowEx(
+        tui.screen, "Networking", text, netif_list,
+        ['Ok', 'Back'], 45, scroll, height, def_iface, help='selif:info',
+        hotkeys={'F5': iface_details_with_conf}, timeout_ms=5000, timeout_cb=update)
 
     tui.screen.popHelpLine()
 
