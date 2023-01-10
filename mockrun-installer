@@ -1,0 +1,255 @@
+#!/usr/bin/env python2
+
+# Requires packages: newt-python xcp-python-libs python-simplejson
+
+import os
+import sys
+from types import ModuleType
+
+### install stubs before imports get a chance to use them
+
+# python-xen is not easily available everywhere
+
+mocked_xen = ModuleType("xen")
+sys.modules["xen"] = mocked_xen
+mocked_xen.lowlevel = ModuleType("lowlevel")
+sys.modules["xen.lowlevel"] = mocked_xen.lowlevel
+mocked_xen.lowlevel.xc = ModuleType("xc")
+sys.modules["xen.lowlevel.xc"] = mocked_xen.lowlevel.xc
+
+class mocked_xc(object):
+    def physinfo(self):
+        return dict(
+            total_memory=12,
+            nr_cpus=1,
+        )
+    def xeninfo(self):
+        return None
+
+mocked_xen.lowlevel.xc.xc = mocked_xc
+
+# the (in)famous branding
+
+mocked_branding = ModuleType("branding")
+mocked_branding.PRODUCT_BRAND = "Mocked XenServer"
+mocked_branding.PRODUCT_NAME = 'xenenterprise'
+mocked_branding.PRODUCT_VERSION_TEXT = "8.2"
+mocked_branding.PLATFORM_NAME = "XCP"
+mocked_branding.PLATFORM_VERSION = '3.2.1'
+mocked_branding.COPYRIGHT_YEARS = "1970-2023"
+mocked_branding.COMPANY_NAME_LEGAL = 'Guys in a Garage'
+mocked_branding.BRAND_GUEST = 'Virtual Machine'
+mocked_branding.BRAND_SERVER = 'Mocked XenServer'
+mocked_branding.BRAND_CONSOLE = "Admin Console"
+
+# for installer proper
+sys.modules["version"] = mocked_branding
+# for xcp.*
+sys.modules["branding"] = mocked_branding
+
+#
+
+import constants
+
+constants.EULA_PATH = "/etc/motd"
+
+#
+
+import util
+
+# mock running individual commands, for those functions where other
+# side-effects besides running the command makes it hard to properly
+# stub them, or when stubbing once here avoids stubbing many other
+# places
+def mocked_runCmd2(command, with_stdout=False, with_stderr=False, inputtext=None):
+    if command[0] in ("lsmod", "/sbin/udevadm", "ifdown", "ifup"):
+        assert not with_stdout and not with_stderr
+        logger.log("Mocking {}".format(command))
+        return 0
+
+    if command[0:2] in (['sgdisk', '--zap-all'],
+                        ['mdadm', '--zero-superblock']):
+        assert not with_stdout and not with_stderr
+        logger.log("Mocking {}".format(command))
+        return 0
+
+    if command[0:2] == ['mdadm', '--create']:
+        assert with_stdout and with_stderr
+        logger.log("Mocking {}".format(command))
+        for arg in reversed(command):
+            if arg.startswith("--"): # seen all disks already
+                break
+            assert arg.startswith("/dev")
+            MOCKED_DISKLIST.remove(os.path.basename(arg))
+        MOCKED_DISKLIST.append("md127")
+        return (0, "mocked stdout", "mocked stderr")
+
+    raise RuntimeError("mockrun runCmd2 command not specified: {!r}{}{}".format(
+        command, " with_stdout" if with_stdout else "", " with_stderr" if with_stderr else ""))
+
+util.runCmd2 = mocked_runCmd2
+
+#
+
+import xcp.net.biosdevname
+import disktools
+
+def mocked_all_devices_all_names():
+    devs = [
+        {"Kernel name": "ethx0",
+         "Assigned MAC": "00:11:22:33:44:55",
+        },
+        {"Kernel name": "ethx1",
+         "Assigned MAC": "00:11:22:33:44:66",
+        },
+        {"Kernel name": "ethx2",
+         "Assigned MAC": "00:11:22:33:44:77",
+        },
+        {"Kernel name": "ethx3",
+         "Assigned MAC": "00:11:22:33:44:88",
+        },
+    ]
+    return {dev["Kernel name"]: dev
+            for dev in devs}
+
+def mocked_lvmtool_readInfo(self, info):
+    return []
+
+def mocked_getMpathNodes():
+    return []
+
+def mocked_gpt_readDiskDetails(self):
+    self.sectorSize        = 512
+    self.sectorExtent      = 1024**3
+    self.sectorFirstUsable = 34
+    self.sectorLastUsable  = self.sectorExtent - 34
+
+def mocked_probePartitioningScheme(device):
+    return constants.PARTITION_GPT
+
+def mocked_gpt_partitionTable(self):
+    logger.log('Stubbing no partition table on disk %s.' % self.device)
+    return {}
+
+xcp.net.biosdevname.all_devices_all_names = mocked_all_devices_all_names
+disktools.LVMTool.readInfo = mocked_lvmtool_readInfo
+disktools.getMpathNodes = mocked_getMpathNodes
+disktools.probePartitioningScheme = mocked_probePartitioningScheme
+disktools.GPTPartitionTool.readDiskDetails = mocked_gpt_readDiskDetails
+disktools.GPTPartitionTool.partitionTable = mocked_gpt_partitionTable
+
+#
+
+import diskutil
+
+# modifiable by RAID building
+MOCKED_DISKLIST = ['sda', 'sdb', 'sdc']
+
+def mocked_getDiskList():
+    return MOCKED_DISKLIST
+
+def mocked_getPartitionList():
+    return []
+
+def mocked_getDiskDeviceVendor(dev):
+    return "Vendor of {}".format(dev)
+def mocked_getDiskDeviceModel(dev):
+    return "Model of {}".format(dev)
+def mocked_getDiskSerialNumber(dev):
+    return "12345"
+def mocked_getDiskDeviceSize(dev):
+    return 1024**3
+
+def mocked_log_available_disks():
+    logger.log("not logging disks, yw")
+
+diskutil.getDiskList = mocked_getDiskList
+diskutil.getPartitionList = mocked_getPartitionList
+
+diskutil.getDiskDeviceVendor = mocked_getDiskDeviceVendor
+diskutil.getDiskDeviceModel = mocked_getDiskDeviceModel
+diskutil.getDiskSerialNumber = mocked_getDiskSerialNumber
+diskutil.getDiskDeviceSize = mocked_getDiskDeviceSize
+
+diskutil.log_available_disks = mocked_log_available_disks
+
+#
+
+import netutil
+
+def mocked_networkingUp():
+    return False
+
+def mocked_getNetifList(include_vlan=False):
+    return mocked_all_devices_all_names().keys()
+
+def mocked_writeNetInterfaceFiles(configuration):
+    # don't fallback to DebStyle accidentally
+    netutil.writeRHStyleInterfaceFiles(configuration)
+
+def mocked_interfaceUp(interface):
+    logger.debug("mocked_interfaceUp({}): telling YES".format(interface))
+    return True
+
+def mocked_netutil_open(fname, mode='r', *args, **kwargs):
+    logger.debug("open({!r}, mode={!r})".format(fname, mode))
+    if fname == '/etc/resolv.conf':
+        fname = 'resolv.conf'
+
+    return open(fname, mode, *args, **kwargs)
+
+netutil.networkingUp = mocked_networkingUp
+netutil.getNetifList = mocked_getNetifList
+netutil.writeNetInterfaceFiles = mocked_writeNetInterfaceFiles
+netutil.interfaceUp = mocked_interfaceUp
+
+netutil.open = mocked_netutil_open
+
+#
+
+import netinterface
+
+def mocked_netinterface_open(fname, mode='r', *args, **kwargs):
+    logger.debug("open({!r}, mode={!r})".format(fname, mode))
+    if fname.startswith('/etc/sysconfig/network-scripts/ifcfg-'):
+        fname = os.path.basename(fname)
+
+    return open(fname, mode, *args, **kwargs)
+
+netinterface.open = mocked_netinterface_open
+
+#
+
+import generalui
+
+def mocked_getTimeZoneRegions():
+    return ['Europe', 'Mars']
+def mocked_getTimeZoneCities(desired_region):
+    return ['Paris', 'Tokyo']
+
+generalui.getTimeZoneRegions = mocked_getTimeZoneRegions
+generalui.getTimeZoneCities = mocked_getTimeZoneCities
+
+####
+
+from xcp import logger
+
+import install
+import tui
+import util
+
+def main(args):
+    logger.openLog("installer.log", logger.logging.DEBUG)
+    logger.log("Starting user interface")
+    tui.init_ui()
+    if False:
+        answerfile = "file:///data/src/host-installer/doc/answerfile.xml"
+    else:
+        answerfile = None
+    status = install.go(tui, args, answerfile, None)
+    logger.log("Shutting down user interface")
+    tui.end_ui()
+    return status
+
+if __name__ == "__main__":
+    sys.exit(main(util.splitArgs(sys.argv[1:], array_args=('--extrarepo'))))
