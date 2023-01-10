@@ -45,6 +45,7 @@ def scanConfiguration():
     for nif in getNetifList():
         if nif not in diskutil.ibft_reserved_nics:
             nics.append(nif)
+    logger.log("scanConfiguration: getNetifList nics={}".format(nics))
 
     # identify any LACP interface previously configured (commandline)
     SYSVIRTUALNET = "/sys/devices/virtual/net"

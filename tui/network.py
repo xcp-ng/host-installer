@@ -11,6 +11,7 @@ import version
 import os
 
 from snack import *
+from xcp import logger
 
 def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
 
@@ -18,6 +19,7 @@ def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
         vlan_field.setFlags(FLAG_DISABLED, vlan_cb.value())
 
     def dhcp_change():
+        logger.debug("dhcp_change: dhcp_rb.selected={}".format(dhcp_rb.selected()))
         for x in [ ip_field, gateway_field, subnet_field, dns_field ]:
             x.setFlags(FLAG_DISABLED, not dhcp_rb.selected())
 
