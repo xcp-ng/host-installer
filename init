@@ -51,15 +51,15 @@ def configureNetworking(ui, device, config):
 
     nethw = netutil.scanConfiguration()
     netcfg = {}
-    for i in nethw:
-        if (device == i or device == nethw[i].hwaddr) and mode == 'static':
-            netcfg[i] = NetInterface(NetInterface.Static, nethw[i].hwaddr,
-                                     config_dict['ip'], config_dict['netmask'],
-                                     config_dict['gateway'], config_dict['dns'],
-                                     config_dict['domain'], config_dict['vlan'])
+    for devname, nic in nethw.items():
+        if (device == devname or device == nic.hwaddr) and mode == 'static':
+            netcfg[devname] = NetInterface(NetInterface.Static, nic.hwaddr,
+                                           config_dict['ip'], config_dict['netmask'],
+                                           config_dict['gateway'], config_dict['dns'],
+                                           config_dict['domain'], config_dict['vlan'])
         else:
-            netcfg[i] = NetInterface(NetInterface.DHCP, nethw[i].hwaddr,
-                                     vlan=config_dict['vlan'])
+            netcfg[devname] = NetInterface(NetInterface.DHCP, nic.hwaddr,
+                                           vlan=config_dict['vlan'])
 
     netutil.writeNetInterfaceFiles(netcfg)
     netutil.writeResolverFile(netcfg, '/etc/resolv.conf')
