@@ -144,7 +144,8 @@ Installer
     Bring up networking on the given interface to allow access to
     answerfiles.
 
-    Default: all
+    Default: "all" if a non-local URL is specified for any of the above
+    answerfile parameters, else no device is started
 
 
   --map_netdev=eth:d|s:mac|pci[[index]]|ppn
