@@ -122,19 +122,19 @@ Installer
     Proceed with installation/upgrade.
 
 
-  --answerfile=ans
+  --answerfile=url
 
     Read answerfile and perform a non-interactive installation
     reporting status using screens.
 
 
-  --rt_answerfile=ans
+  --rt_answerfile=url
 
     Read answerfile and perform a non-interactive installation
     reporting status to the console as text.
 
 
-  --answerfile_generator=script
+  --answerfile_generator=url
 
     Retrieve script, run it and use the output of it as an answerfile.
 
