@@ -26,6 +26,7 @@ from version import *
 
 # Attempt to configure the network:
 def configureNetworking(ui, device, config):
+    logger.info("configuring network: device={} config={}".format(device, config))
     if ui:
         ui.progress.showMessageDialog(
             "Preparing for installation",
@@ -53,12 +54,15 @@ def configureNetworking(ui, device, config):
     netcfg = {}
 
     if device.startswith("lacp:"):
+        logger.log("nethw before bonding: {}".format(nethw))
         bond_mode, bond_config = device.split(":", 1)
         device = "bond0"
         assert bond_config.startswith("members=")
         k, v = bond_config.split("=", 1)
         bond_members = v.split(",")
         netutil.configure_bonding_interface(nethw, device, "lacp", bond_members)
+
+        logger.log("nethw after bonding: {}".format(nethw))
 
     for devname, nic in nethw.items():
         if (device == devname or device == nic.hwaddr) and mode == 'static':
@@ -86,6 +90,7 @@ def configureNetworking(ui, device, config):
         if len(matching_list) == 1:
             devname = matching_list[0].name
             iface_to_start.append(devname)
+    logger.log("Network interfaces to start: {!r}".format(iface_to_start))
 
     for i in iface_to_start:
         netutil.ifup(netcfg[i].getInterfaceName(i))

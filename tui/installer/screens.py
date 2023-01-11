@@ -224,6 +224,7 @@ def get_admin_interface(answers):
 def get_admin_interface_configuration(answers):
     if 'net-admin-interface' not in answers:
         answers['net-admin-interface'] = answers['network-hardware'].keys()[0]
+        logger.log("get_admin_interface_configuration: selecting {}".format(answers['net-admin-interface']))
     nic = answers['network-hardware'][answers['net-admin-interface']]
 
     defaults = None
