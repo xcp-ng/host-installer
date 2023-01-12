@@ -42,8 +42,10 @@ def scanConfiguration():
 
     for nic in all_devices_all_names().values():
         name = nic.get("Kernel name", "")
-        if name in nics:
-            conf[name] = NIC(nic)
+        if name not in nics:
+            logger.log("scanConfiguration: {} not in nics".format(name))
+            continue
+        conf[name] = NIC(nic)
 
     return conf
 
