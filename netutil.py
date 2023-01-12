@@ -111,7 +111,6 @@ def splitInterfaceVlan(interface):
 
 def ifup(interface):
     device, vlan = splitInterfaceVlan(interface)
-    assert device in getNetifList()
     interface_up[interface] = True
     return util.runCmd2(['ifup', interface])
 
