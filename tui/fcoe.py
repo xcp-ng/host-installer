@@ -34,7 +34,7 @@ def select_fcoe_ifaces(answers):
 
         return
 
-    netifs.sort(lambda l, r: int(l[3:]) - int(r[3:]))
+    netifs.sort(key=netutil.netifSortKey)
 
     def iface_details(context):
         tui.update_help_line([' ', ' '])

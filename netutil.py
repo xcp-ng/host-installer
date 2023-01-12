@@ -47,6 +47,10 @@ def scanConfiguration():
 
     return conf
 
+def netifSortKey(interface):
+    m = re.match(r"([a-z]+)(\d+)((?:\..+)?)", interface)
+    return m.groups()
+
 def getNetifList(include_vlan=False):
     all = os.listdir("/sys/class/net")
 
@@ -54,12 +58,8 @@ def getNetifList(include_vlan=False):
         return interface.startswith("eth") and (interface.isalnum() or
                                     (include_vlan and "." in interface))
 
-    def rankValue(ethx):
-        iface, vlan = splitInterfaceVlan(ethx)
-        return (int(iface.strip('eth'))*10000 + (int(vlan) if vlan else -1))
-
     relevant = filter(lambda x: ethfilter(x, include_vlan), all)
-    relevant.sort(lambda l, r: rankValue(l) - rankValue(r))
+    relevant.sort(key=netifSortKey)
     return relevant
 
 # writes an 'interfaces' style file given a network configuration object list
