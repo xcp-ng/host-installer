@@ -40,15 +40,49 @@ def scanConfiguration():
     """
     conf = {}
     nics = []
+    slave_nics = []
 
     for nif in getNetifList():
         if nif not in diskutil.ibft_reserved_nics:
             nics.append(nif)
 
+    # identify any LACP interface previously configured (commandline)
+    SYSVIRTUALNET = "/sys/devices/virtual/net"
+    virtual_devs = os.listdir(SYSVIRTUALNET)
+    for iface in virtual_devs:
+        mode_file = os.path.join(SYSVIRTUALNET, iface, "bonding/mode")
+        if not os.path.exists(mode_file):
+            logger.log("scanConfiguration: no file %r" % mode_file)
+            continue            # not a bonding iface
+        with open(mode_file) as fd:
+            lines = fd.readlines()
+            assert len(lines) == 1
+            if lines[0].strip() != "802.3ad 4":
+                logger.log("scanConfiguration: wrong bonding mode %r != '802.3ad 4'" % lines[0])
+                continue        # not a LACP iface
+        with open(os.path.join(SYSVIRTUALNET, iface, "bonding/slaves")) as fd:
+            lines = fd.readlines()
+            assert len(lines) == 1
+            bond_members = tuple(lines[0].strip().split())
+        with open(os.path.join(SYSVIRTUALNET, iface, "address")) as fd:
+            lines = fd.readlines()
+            assert len(lines) == 1
+            mac = lines[0].strip()
+        slave_nics.extend(bond_members)
+        conf[iface] = NIC({"Kernel name": iface,
+                           "Assigned MAC": mac,
+                           "Bond mode": "lacp",
+                           "Bond members": bond_members,
+                           })
+    logger.log("scanConfiguration: bonding interfaces: {}, slaves: {}".format(conf.keys(), slave_nics))
+
     for nic in all_devices_all_names().values():
         name = nic.get("Kernel name", "")
         if name not in nics:
             logger.log("scanConfiguration: {} not in nics".format(name))
+            continue
+        if name in slave_nics:
+            logger.log("scanConfiguration: {} in slave_nics".format(name))
             continue
         conf[name] = NIC(nic)
 
