@@ -46,8 +46,6 @@ def runMainSequence(results, ram_warning, vt_warning, suppress_extra_cd_dialog):
             ('installation-to-overwrite' not in answers or \
                  not answers['installation-to-overwrite'].settingsAvailable())
 
-    has_multiple_nics = lambda a: len(a['network-hardware'].keys()) > 1
-
     is_reinstall_fn = lambda a: a['install-type'] == constants.INSTALL_TYPE_REINSTALL
     is_clean_install_fn = lambda a: a['install-type'] == constants.INSTALL_TYPE_FRESH
     is_not_restore_fn = lambda a: a['install-type'] != constants.INSTALL_TYPE_RESTORE
@@ -160,7 +158,7 @@ def runMainSequence(results, ram_warning, vt_warning, suppress_extra_cd_dialog):
         Step(uis.get_root_password,
              predicates=[is_not_restore_fn, not_preserve_settings]),
         Step(uis.get_admin_interface,
-             predicates=[is_not_restore_fn, has_multiple_nics, not_preserve_settings]),
+             predicates=[is_not_restore_fn, not_preserve_settings]),
         Step(uis.get_admin_interface_configuration,
              predicates=[is_not_restore_fn, not_preserve_settings]),
         Step(uis.get_name_service_configuration,

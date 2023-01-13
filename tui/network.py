@@ -266,13 +266,8 @@ def requireNetworking(answers, defaults=None, msg=None, keys=['net-admin-interfa
             def_iface = defaults[interface_key]
         if config_key in defaults:
             def_conf = defaults[config_key]
-    if len(nethw.keys()) > 1 or netutil.networkingUp():
-        seq = [ uicontroller.Step(select_interface, args=[def_iface, msg]),
-                uicontroller.Step(specify_configuration, args=[None, def_conf]) ]
-    else:
-        text = "%s Setup needs network access to continue.\n\nHow should networking be configured at this time?" % (version.PRODUCT_BRAND or version.PLATFORM_NAME)
-        conf_dict['interface'] = nethw.keys()[0]
-        seq = [ uicontroller.Step(specify_configuration, args=[text, def_conf]) ]
+    seq = [ uicontroller.Step(select_interface, args=[def_iface, msg]),
+            uicontroller.Step(specify_configuration, args=[None, def_conf]) ]
     direction = uicontroller.runSequence(seq, conf_dict)
 
     if direction == RIGHT_FORWARDS and 'config' in conf_dict:
