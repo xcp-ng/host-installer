@@ -359,16 +359,23 @@ class Answerfile:
         if_hwaddr = None
 
         if_name = getStrAttribute(node, ['name'])
-        if if_name and if_name in nethw:
+        if_hwaddr = getStrAttribute(node, ['hwaddr'])
+        if not (bool(if_name) ^ bool(if_hwaddr)):
+            raise AnswerfileException("<admin-interface> tag must have exactly one of 'name' or 'hwaddr'")
+
+        if if_name:
+            if if_name not in nethw:
+                raise AnswerfileException('<admin-interface name="%s">: unknown interface, have %s' % (
+                    if_name, ", ".join(nethw.keys())))
             if_hwaddr = nethw[if_name].hwaddr
+        elif if_hwaddr:
+            matching_list = [x for x in  nethw.values() if x.hwaddr == if_hwaddr.lower()]
+            if len(matching_list) != 1:
+                raise AnswerfileException('<admin-interface hwaddr="%s">: cannot identify interface, have %s' % (
+                    if_hwaddr, ", ".join(nethw.values())))
+            if_name = matching_list[0].name
         else:
-            if_hwaddr = getStrAttribute(node, ['hwaddr'])
-            if if_hwaddr:
-                matching_list = filter(lambda x: x.hwaddr == if_hwaddr.lower(), nethw.values())
-                if len(matching_list) == 1:
-                    if_name = matching_list[0].name
-        if not if_name and not if_hwaddr:
-             raise AnswerfileException("<admin-interface> tag must have one of 'name' or 'hwaddr'")
+            assert False # previous test protects us
 
         results['net-admin-interface'] = if_name
 
