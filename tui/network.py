@@ -159,6 +159,52 @@ def iface_details(context, conf):
     tui.screen.popHelpLine()
     return True
 
+def lacp_bond_ui(conf):
+    netifs = conf.keys()
+    netifs.sort(key=netutil.netifSortKey)
+    entries = [lentry(x, conf) for x in netifs]
+
+    text = TextboxReflowed(54, "Select interfaces to create the bond on.")
+    buttons = ButtonBar(tui.screen, [('Create', 'create'), ('Back', 'back')])
+    scroll, _ = snackutil.scrollHeight(3, len(entries))
+    cbt = CheckboxTree(3, scroll)
+    for (c_text, c_item) in entries:
+        cbt.append(c_text, c_item, False)
+    gf = GridFormHelp(tui.screen, 'LACP Bond', '', 1, 4)
+    gf.add(text, 0, 0, padding=(0, 0, 0, 1))
+    gf.add(cbt, 0, 1, padding=(0, 0, 0, 1))
+    gf.add(buttons, 0, 3, growx=1)
+    gf.addHotKey('F5')
+
+    tui.update_help_line([None, "<F5> more info"])
+    loop = True
+    while loop:
+        rc = gf.run()
+        if rc == 'F5':
+            iface_details(cbt.getCurrent(), conf)
+        else:
+            loop = False
+    tui.screen.popWindow()
+    tui.screen.popHelpLine()
+
+    button = buttons.buttonPressed(rc)
+    if button == 'create':
+        selected = cbt.getSelection()
+        if len(selected) < 2:
+            tui.OKDialog("bad selection", "Network interface bonding needs at least two interfaces")
+            return lacp_bond_ui(conf)
+
+        txt = 'Create a LACP bond with members %s?  This choice cannot be rolled back.' % (
+            ", ".join(selected))
+        title = 'LACP bond creation'
+        confirmation = snackutil.ButtonChoiceWindowEx(tui.screen, title, txt,
+                                                      ('Ok', 'Cancel'), 40, default=1)
+        if confirmation == 'ok':
+            netutil.configure_bonding_interface(conf, 'bond0', "lacp", tuple(selected))
+
+    # always back to iface selection
+    return REPEAT_STEP, None
+
 def select_netif(text, conf, offer_existing=False, default=None):
     """ Display a screen that displays a choice of network interfaces to the
     user, with 'text' as the informative text as the data, and conf being the
@@ -198,15 +244,19 @@ def select_netif(text, conf, offer_existing=False, default=None):
         if default:
             def_iface = lentry(default, conf)
     netif_list += [lentry(x, conf) for x in netifs]
+    propose_lacp = ((len([netif for netif in netifs if netif.startswith("eth")]) >= 2) and
+                    (len([netif for netif in netifs if netif.startswith("bond")]) == 0))
+    buttons = ['Ok', 'Create LACP Bond', 'Back'] if propose_lacp else ['Ok', 'Back']
     scroll, height = snackutil.scrollHeight(6, len(netif_list))
-    rc, entry = snackutil.ListboxChoiceWindowEx(
-        tui.screen, "Networking", text, netif_list,
-        ['Ok', 'Back'], 45, scroll, height, def_iface, help='selif:info',
-        hotkeys={'F5': iface_details_with_conf}, timeout_ms=5000, timeout_cb=update)
+    rc, entry = snackutil.ListboxChoiceWindowEx(tui.screen, "Networking", text, netif_list,
+                                        buttons, 45, scroll, height, def_iface, help='selif:info',
+                                        hotkeys={'F5': iface_details_with_conf}, timeout_ms=5000, timeout_cb=update)
 
     tui.screen.popHelpLine()
 
     if rc == 'back': return LEFT_BACKWARDS, None
+    if rc == 'create lacp bond': return lacp_bond_ui(conf)
+
     return RIGHT_FORWARDS, entry
 
 def requireNetworking(answers, defaults=None, msg=None, keys=['net-admin-interface', 'net-admin-configuration']):
@@ -252,6 +302,8 @@ def requireNetworking(answers, defaults=None, msg=None, keys=['net-admin-interfa
         if 'reuse-networking' in answers and answers['reuse-networking']:
             return RIGHT_FORWARDS
 
+        logger.log("answers['interface'] = {!r}".format(answers['interface']))
+        # FIXME if this is a tuple we have a bond, what to do ?
         direction, conf = get_iface_configuration(nethw[answers['interface']], txt,
                                                   defaults=defaults, include_dns=True)
         if direction == RIGHT_FORWARDS:
