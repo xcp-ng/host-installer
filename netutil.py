@@ -62,8 +62,8 @@ def getNetifList(include_vlan=False):
     all = os.listdir("/sys/class/net")
 
     def ethfilter(interface, include_vlan):
-        return interface.startswith("eth") and (interface.isalnum() or
-                                    (include_vlan and "." in interface))
+        return ((interface.startswith("eth") or interface.startswith("bond")) and
+                (interface.isalnum() or (include_vlan and "." in interface)))
 
     relevant = filter(lambda x: ethfilter(x, include_vlan), all)
     relevant.sort(key=netifSortKey)
@@ -280,6 +280,23 @@ class NetDevices:
 
         output += '</net-devices>\n'
         return output
+
+def configure_bonding_interface(nethw, bond_iface, bond_mode, bond_members):
+    assert len(bond_members) >= 2
+    for devname in bond_members:
+        assert devname in nethw
+
+    # forge a NIC definition for the LACP interface
+    ref_devname = bond_members[0]
+    nethw[bond_iface] = NIC({"Kernel name": bond_iface,
+                             "Assigned MAC": nethw[ref_devname].hwaddr,
+                             "Bond mode": bond_mode,
+                             "Bond members": bond_members,
+                             })
+
+    # remove LACP member NIC definitions from the list
+    for devname in bond_members:
+        del nethw[devname]
 
 ### EA-1069
 

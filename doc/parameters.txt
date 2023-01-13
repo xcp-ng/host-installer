@@ -139,11 +139,14 @@ Installer
     Retrieve script, run it and use the output of it as an answerfile.
 
 
-  --network_device=eth|mac|all
+  --network_device=eth|mac|lacp:members=eth,eth[,eth]*|all
   --answerfile_device[D]=...
 
     Bring up networking on the given interface to allow access to
     answerfiles.
+
+    Specification of LACP bonding configures a bond0 interfaces with
+    given members.
 
     Default: "all" if a non-local URL is specified for any of the above
     answerfile parameters, else no device is started
