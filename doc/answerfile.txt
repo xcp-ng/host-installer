@@ -288,7 +288,7 @@ Format of 'source' and 'driver-source'
 
       protov6="static|dhcp|autoconf|none"
 
-      Default: none
+        Default: none
 
     If protov6 is static then the following elements must be present:
 
