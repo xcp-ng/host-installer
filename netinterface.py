@@ -168,21 +168,24 @@ class NetInterface:
             with open('/etc/sysconfig/network-scripts/ifcfg-%s' % iface_name, 'w') as f:
                 f.write("DEVICE=%s\n" % iface_name)
                 f.write("ONBOOT=yes\n")
-                if self.mode == self.DHCP:
-                    f.write("BOOTPROTO=dhcp\n")
-                    f.write("PERSISTENT_DHCLIENT=1\n")
-                else:
-                    # CA-11825: broadcast needs to be determined for non-standard networks
-                    bcast = self.getBroadcast()
-                    f.write("BOOTPROTO=none\n")
-                    f.write("IPADDR=%s\n" % self.ipaddr)
-                    if bcast is not None:
-                        f.write("BROADCAST=%s\n" % bcast)
-                    f.write("NETMASK=%s\n" % self.netmask)
-                    if self.gateway:
-                        f.write("GATEWAY=%s\n" % self.gateway)
+                writeIpConfig(f)
                 if self.vlan:
                     f.write("VLAN=yes\n")
+
+        def writeIpConfig(f):
+            if self.mode == self.DHCP:
+                f.write("BOOTPROTO=dhcp\n")
+                f.write("PERSISTENT_DHCLIENT=1\n")
+            else:
+                # CA-11825: broadcast needs to be determined for non-standard networks
+                bcast = self.getBroadcast()
+                f.write("BOOTPROTO=none\n")
+                f.write("IPADDR=%s\n" % self.ipaddr)
+                if bcast is not None:
+                    f.write("BROADCAST=%s\n" % bcast)
+                f.write("NETMASK=%s\n" % self.netmask)
+                if self.gateway:
+                    f.write("GATEWAY=%s\n" % self.gateway)
 
         assert self.modev6 is None
         assert self.mode
