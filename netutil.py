@@ -106,15 +106,14 @@ def writeResolverFile(configuration, filename):
 interface_up = {}
 
 # simple wrapper for calling the local ifup script:
-def splitInterfaceVlan(interface):
+def splitInterfaceVlan(interface_vlan):
     if "." in interface:
         return interface.split(".", 1)
     return interface, None
 
-def ifup(interface):
-    device, vlan = splitInterfaceVlan(interface)
-    interface_up[interface] = True
-    return util.runCmd2(['ifup', interface])
+def ifup(interface_vlan):
+    interface_up[interface_vlan] = True
+    return util.runCmd2(['ifup', interface_vlan])
 
 def ifdown(interface):
     if interface in interface_up:
@@ -170,8 +169,8 @@ def networkingUp():
     return False
 
 # make a string to help users identify a network interface:
-def getPCIInfo(interface):
-    interface, vlan = splitInterfaceVlan(interface)
+def getPCIInfo(interface_vlan):
+    interface, vlan = splitInterfaceVlan(interface_vlan)
     info = "<Information unknown>"
     devpath = os.path.realpath('/sys/class/net/%s/device' % interface)
     slot = devpath[len(devpath) - 7:]
@@ -193,8 +192,8 @@ def getPCIInfo(interface):
 
     return info
 
-def getDriver(interface):
-    interface, vlan = splitInterfaceVlan(interface)
+def getDriver(interface_vlan):
+    interface, vlan = splitInterfaceVlan(interface_vlan)
     return os.path.basename(os.path.realpath('/sys/class/net/%s/device/driver' % interface))
 
 def __readOneLineFile__(filename):

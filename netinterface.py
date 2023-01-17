@@ -83,7 +83,7 @@ class NetInterface:
             ipv6 = "autoconf"
         else:
             ipv6 = "None"
-        vlan = ("vlan = '%d' " % self.vlan) if self.vlan else ""
+        vlan = (" vlan='%d' " % self.vlan) if self.vlan else ""
 
         return "<NetInterface: %s%s ipv4:%s ipv6:%s>" % (hw, vlan, ipv4, ipv6)
 
