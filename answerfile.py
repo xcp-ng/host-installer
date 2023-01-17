@@ -352,10 +352,35 @@ class Answerfile:
 
         return results
 
+    def parseBonding(self, nethw):
+        nodes = getElementsByTagName(self.top_node, ['bonding'])
+        if len(nodes) > 1:
+            raise AnswerfileException("<bonding> must appear only once")
+        if nodes:
+            node = nodes[0]
+            bond_name = getStrAttribute(node, ['name'], mandatory=True)
+            if bond_name != "bond0":
+                raise AnswerfileException("<bonding> name must be 'bond0'")
+
+            bond_mode = getStrAttribute(node, ['mode'], mandatory=True)
+            if bond_mode != "lacp":
+                raise AnswerfileException("<bonding> mode must be 'lacp'")
+
+            bond_members_str = getStrAttribute(node, ['members'], mandatory=True)
+            bond_members = bond_members_str.split(",")
+            if len(bond_members) < 2:
+                raise AnswerfileException("<bonding> members must be at least two")
+            for member in bond_members:
+                if member not in nethw:
+                    raise AnswerfileException("<bonding> member %r not in detected NICs" % (member,))
+
+            netutil.configure_bonding_interface(nethw, bond_name, bond_mode, bond_members)
+
     def parseInterface(self):
         results = {}
         node = getElementsByTagName(self.top_node, ['admin-interface'], mandatory=True)[0]
         nethw = netutil.scanConfiguration()
+        self.parseBonding(nethw)
 
         if_name = getStrAttribute(node, ['name'])
         if_hwaddr = getStrAttribute(node, ['hwaddr'])
