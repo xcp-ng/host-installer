@@ -356,7 +356,6 @@ class Answerfile:
         results = {}
         node = getElementsByTagName(self.top_node, ['admin-interface'], mandatory=True)[0]
         nethw = netutil.scanConfiguration()
-        if_hwaddr = None
 
         if_name = getStrAttribute(node, ['name'])
         if_hwaddr = getStrAttribute(node, ['hwaddr'])
