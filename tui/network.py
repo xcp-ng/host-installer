@@ -130,7 +130,7 @@ def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
     else:
         answers = NetInterface(NetInterface.Static, nic, ip_field.value(),
                                subnet_field.value(), gateway_field.value(),
-                               dns_field.value(), vlan=vlan_value)
+                               dns_field.value(), vlan=vlan_value, bond_mode=nic.bond_mode, bond_members=nic.bond_members)
     return RIGHT_FORWARDS, answers
 
 def select_netif(text, conf, offer_existing=False, default=None):

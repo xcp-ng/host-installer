@@ -20,9 +20,14 @@ class NIC:
         self.driver = "%s (%s)" % (nic_dict.get("Driver", ""),
                                    nic_dict.get("Driver version", ""))
         self.smbioslabel = nic_dict.get("SMBIOS Label", "")
+        # those labels cannot come from biosdevname, but are added
+        # here to avoid adding another API
+        self.bond_mode = nic_dict.get("Bond mode", None)
+        self.bond_members = nic_dict.get("Bond members", None)
 
     def __repr__(self):
-        return "<NIC: %s (%s)>" % (self.name, self.hwaddr)
+        return "<NIC: %s (%s)%s>" % (self.name, self.hwaddr,
+                                     (", bonding=" + self.bond_mode) if self.bond_mode else "")
 
 def scanConfiguration():
     """ Returns a dictionary of string -> NIC with a snapshot of the NIC
