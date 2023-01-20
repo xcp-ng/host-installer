@@ -23,7 +23,7 @@ class NetInterface:
     DHCP = 2
     Autoconf = 3
 
-    def __init__(self, mode, hwaddr, ipaddr=None, netmask=None, gateway=None,
+    def __init__(self, mode, nic, ipaddr=None, netmask=None, gateway=None,
                  dns=None, domain=None, vlan=None):
         assert mode is None or mode == self.Static or mode == self.DHCP
         if ipaddr == '':
@@ -41,7 +41,7 @@ class NetInterface:
             assert netmask
 
         self.mode = mode
-        self.hwaddr = hwaddr
+        self.hwaddr = nic.hwaddr
         if mode == self.Static:
             self.ipaddr = ipaddr
             self.netmask = netmask

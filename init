@@ -53,12 +53,12 @@ def configureNetworking(ui, device, config):
     netcfg = {}
     for devname, nic in nethw.items():
         if (device == devname or device == nic.hwaddr) and mode == 'static':
-            netcfg[devname] = NetInterface(NetInterface.Static, nic.hwaddr,
+            netcfg[devname] = NetInterface(NetInterface.Static, nic,
                                            config_dict['ip'], config_dict['netmask'],
                                            config_dict['gateway'], config_dict['dns'],
                                            config_dict['domain'], config_dict['vlan'])
         else:
-            netcfg[devname] = NetInterface(NetInterface.DHCP, nic.hwaddr,
+            netcfg[devname] = NetInterface(NetInterface.DHCP, nic,
                                            vlan=config_dict['vlan'])
 
     netutil.writeNetInterfaceFiles(netcfg)

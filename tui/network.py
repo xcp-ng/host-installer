@@ -126,9 +126,9 @@ def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
 
     vlan_value = int(vlan_field.value()) if vlan_cb.selected() else None
     if bool(dhcp_rb.selected()):
-        answers = NetInterface(NetInterface.DHCP, nic.hwaddr, vlan=vlan_value)
+        answers = NetInterface(NetInterface.DHCP, nic, vlan=vlan_value)
     else:
-        answers = NetInterface(NetInterface.Static, nic.hwaddr, ip_field.value(),
+        answers = NetInterface(NetInterface.Static, nic, ip_field.value(),
                                subnet_field.value(), gateway_field.value(),
                                dns_field.value(), vlan=vlan_value)
     return RIGHT_FORWARDS, answers

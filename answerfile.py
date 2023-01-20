@@ -377,6 +377,9 @@ class Answerfile:
         else:
             assert False # previous test protects us
 
+        nic = netutil.NIC({"Kernel name": if_name,
+                           "Assigned MAC": if_hwaddr,
+                           })
         results['net-admin-interface'] = if_name
 
         proto = getStrAttribute(node, ['proto'], mandatory=True)
@@ -384,11 +387,11 @@ class Answerfile:
             ip = getText(getElementsByTagName(node, ['ip', 'ipaddr'], mandatory=True)[0])
             subnet = getText(getElementsByTagName(node, ['subnet-mask', 'subnet'], mandatory=True)[0])
             gateway = getText(getElementsByTagName(node, ['gateway'], mandatory=True)[0])
-            results['net-admin-configuration'] = NetInterface(NetInterface.Static, if_hwaddr, ip, subnet, gateway, dns=None)
+            results['net-admin-configuration'] = NetInterface(NetInterface.Static, nic, ip, subnet, gateway, dns=None)
         elif proto == 'dhcp':
-            results['net-admin-configuration'] = NetInterface(NetInterface.DHCP, if_hwaddr)
+            results['net-admin-configuration'] = NetInterface(NetInterface.DHCP, nic)
         else:
-            results['net-admin-configuration'] = NetInterface(None, if_hwaddr)
+            results['net-admin-configuration'] = NetInterface(None, nic)
 
         protov6 = getStrAttribute(node, ['protov6'])
         if protov6 == 'static':

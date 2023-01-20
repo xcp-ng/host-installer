@@ -254,7 +254,10 @@ class ExistingInstallation:
                 results['net-admin-bridge'] = mgmt_iface
                 results['net-admin-interface'] = d.get('interfaces').split(',')[0]
 
-                if_hwaddr = netutil.getHWAddr(results['net-admin-interface'])
+                nic = netutil.NIC({
+                    # "Kernel name": results['net-admin-interface'] ?
+                    "Assigned MAC": netutil.getHWAddr(results['net-admin-interface']),
+                })
 
                 vlan = int(d['vlan']) if 'vlan' in d else None
                 proto = d.get('mode')
@@ -264,11 +267,11 @@ class ExistingInstallation:
                     gateway = d.get('gateway')
                     dns = d.get('dns', '').split(',')
                     if ip and netmask:
-                        results['net-admin-configuration'] = NetInterface(NetInterface.Static, if_hwaddr, ip, netmask, gateway, dns, vlan=vlan)
+                        results['net-admin-configuration'] = NetInterface(NetInterface.Static, nic, ip, netmask, gateway, dns, vlan=vlan)
                 elif proto == 'dhcp':
-                    results['net-admin-configuration'] = NetInterface(NetInterface.DHCP, if_hwaddr, vlan=vlan)
+                    results['net-admin-configuration'] = NetInterface(NetInterface.DHCP, nic, vlan=vlan)
                 else:
-                    results['net-admin-configuration'] = NetInterface(None, if_hwaddr, vlan=vlan)
+                    results['net-admin-configuration'] = NetInterface(None, nic, vlan=vlan)
 
                 protov6 = d.get('modev6')
                 if protov6 == 'static':
