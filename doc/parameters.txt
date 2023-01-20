@@ -179,7 +179,10 @@ Installer
 
   --reboot
 
-    Reboot host after installation
+    Reboot host after installation.
+
+    NOTE: this flag is set by the atexit=reboot startup parameter,
+    which is the default behavior.
 
 
   --device_mapper_multipath=disabled|enabled
