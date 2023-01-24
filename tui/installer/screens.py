@@ -246,6 +246,9 @@ def get_installation_type(answers):
         entries.append(("Upgrade %s on %s" % (x, diskutil.getHumanDiskLabel(x.primary_disk, short=True)),
                         (x, x.settingsAvailable())))
     for b in answers['backups']:
+        if not os.path.exists(b.root_disk):
+            logger.log("%s: disk %s not found, skipping" % (b, b.root_disk))
+            continue
         entries.append(("Restore %s from backup to %s" % (b, diskutil.getHumanDiskLabel(b.root_disk, short=True)),
                         (b, None)))
 
