@@ -162,6 +162,15 @@ Common Elements
     Discovery on.
 
 
+  <assemble-raid/>?
+
+    Run `mdadm --assemble --scan` before looking for the device
+    specified in <primary-disk>, <existing-installation>, or
+    <backup-disk>.
+
+    Used to be the default behavior.
+
+
 (Re)Install Elements
 --------------------
 
@@ -173,6 +182,10 @@ Common Elements
     Specifies the target disks and md device for creating a
     software RAID 1 array. The md device can then be used in
     <primary-disk> below. (new in xcp-ng 7.5.0-2 and 7.6)
+
+    Beware when using both <raid> and <assemble-raid/> together, as
+    assembling previously-existing RAID will prevent creating a RAID
+    on the same disks.
 
 
   <primary-disk>dev</primary-disk>

@@ -133,14 +133,6 @@ To setup advanced storage classes press <F10>.
     lvm.deactivateAll()
     del lvm
 
-    tui.progress.showMessageDialog("Please wait", "Checking for existing products...")
-    answers['installed-products'] = product.find_installed_products()
-    answers['upgradeable-products'] = upgrade.filter_for_upgradeable_products(answers['installed-products'])
-    answers['backups'] = product.findXenSourceBackups()
-    tui.progress.clearModelessDialog()
-
-    diskutil.log_available_disks()
-
     # CA-41142, ensure we have at least one network interface and one disk before proceeding
     label = None
     if len(diskutil.getDiskList()) == 0:
@@ -180,6 +172,22 @@ def hardware_warnings(answers, ram_warning, vt_warning):
         )
 
     if button == 'back': return LEFT_BACKWARDS
+    return RIGHT_FORWARDS
+
+def scan_existing(answers):
+    tui.progress.showMessageDialog("Please wait", "Checking for existing products...")
+
+    if 'assemble-raid' in answers:
+        logger.log("Assembling any RAID volumes")
+        rv = util.runCmd2([ 'mdadm', '--assemble', "--scan" ])
+
+    answers['installed-products'] = product.find_installed_products()
+    answers['upgradeable-products'] = upgrade.filter_for_upgradeable_products(answers['installed-products'])
+    answers['backups'] = product.findXenSourceBackups()
+    tui.progress.clearModelessDialog()
+
+    diskutil.log_available_disks()
+
     return RIGHT_FORWARDS
 
 def overwrite_warning(answers):
@@ -238,11 +246,37 @@ def get_admin_interface_configuration(answers):
     return rc
 
 def get_installation_type(answers):
+
+    # If we were not already told to enable RAID, build a full list of
+    # RAID members, for filtering out from upgradable-products and
+    # backups, and to decide whether to propose to activate existing RAID.
+    raid_members = []
+    if constants.HAS_RAID_ASSEMBLE and "assemble-raid" not in answers:
+        for disk in diskutil.getQualifiedDiskList():
+            rv, out = util.runCmd2([ 'mdadm', '--examine', disk ], with_stdout=True)
+            if rv == 0 and re.search("Array UUID :", out):
+                raid_members.append(disk)
+
     entries = []
     for x in answers['upgradeable-products']:
-        entries.append(("Upgrade %s" % str(x), (x, x.settingsAvailable())))
+        if x.primary_disk in raid_members:
+            logger.log("%s: disk %s in %s, skipping" % (x, x.primary_disk, raid_members))
+            continue
+        entries.append(("Upgrade %s on %s" % (x, diskutil.getHumanDiskLabel(x.primary_disk, short=True)),
+                        (x, x.settingsAvailable())))
     for b in answers['backups']:
-        entries.append(("Restore %s from backup" % str(b), (b, None)))
+        if not os.path.exists(b.root_disk):
+            logger.log("%s: disk %s not found, skipping" % (b, b.root_disk))
+            continue
+        if b.root_disk in raid_members:
+            logger.log("%s: disk %s in %s, skipping" % (b, b.root_disk, raid_members))
+            continue
+        entries.append(("Restore %s from backup to %s" % (b, diskutil.getHumanDiskLabel(b.root_disk, short=True)),
+                        (b, None)))
+
+    if raid_members:
+        logger.log("Found a MD RAID on: %s" % ", ".join(raid_members))
+        entries.append(("Assemble software RAID volumes", ("RAID", None)))
 
     entries.append( ("Perform clean installation", None) )
 
@@ -328,6 +362,10 @@ def get_installation_type(answers):
     elif isinstance(entry[0], product.XenServerBackup):
         answers['install-type'] = constants.INSTALL_TYPE_RESTORE
         answers['backup-to-restore'], _ = entry
+    elif entry[0] == "RAID":
+        # go rescan for products after assembling RAID volumes
+        answers['assemble-raid'] = True
+        return LEFT_BACKWARDS
 
     return RIGHT_FORWARDS
 
@@ -607,7 +645,7 @@ def sorted_disk_list():
     return sorted(set(diskutil.getQualifiedDiskList()),
                   lambda x, y: len(x) == len(y) and cmp(x, y) or (len(x) - len(y)))
 
-def filter_out_raid_member(diskEntries):
+def filter_out_active_raid_member(diskEntries):
     raid_disks = [de for de in diskEntries if diskutil.is_raid(de)]
     raid_slaves = set(member for master in raid_disks for member in diskutil.getDeviceSlaves(master))
     return [e for e in diskEntries if e not in raid_slaves]
@@ -615,23 +653,25 @@ def filter_out_raid_member(diskEntries):
 # select drive to use as the Dom0 disk:
 def select_primary_disk(answers):
     button = None
-    diskEntries = filter_out_raid_member(sorted_disk_list())
+    diskEntries = filter_out_active_raid_member(sorted_disk_list())
     entries = []
     target_is_sr = {}
     min_primary_disk_size = constants.min_primary_disk_size
 
     for de in diskEntries:
         (vendor, model, size) = diskutil.getExtendedDiskInfo(de)
-        if min_primary_disk_size <= diskutil.blockSizeToGBSize(size):
-            # determine current usage
-            target_is_sr[de] = False
-            (boot, root, state, storage, logs) = diskutil.probeDisk(de)
-            if storage[0]:
-                target_is_sr[de] = True
-            (vendor, model, size) = diskutil.getExtendedDiskInfo(de)
-            stringEntry = "%s - %s [%s %s]" % (diskutil.getHumanDiskName(de), diskutil.getHumanDiskSize(size), vendor, model)
-            e = (stringEntry, de)
-            entries.append(e)
+        if diskutil.blockSizeToGBSize(size) < min_primary_disk_size:
+            logger.log("disk %s is too small: %s < %s GB" %
+                       (de, diskutil.blockSizeToGBSize(size), min_primary_disk_size))
+            continue
+
+        # determine current usage
+        target_is_sr[de] = False
+        (boot, root, state, storage, logs) = diskutil.probeDisk(de)
+        if storage[0]:
+            target_is_sr[de] = True
+        e = (diskutil.getHumanDiskLabel(de), de)
+        entries.append(e)
 
     # we should have at least one disk
     if len(entries) == 0:
@@ -717,7 +757,7 @@ def check_sr_space(answers):
     return EXIT
 
 def select_guest_disks(answers):
-    diskEntries = filter_out_raid_member(sorted_disk_list())
+    diskEntries = filter_out_active_raid_member(sorted_disk_list())
 
     # CA-38329: filter out device mapper nodes (except primary disk) as these won't exist
     # at XenServer boot and therefore cannot be added as physical volumes to Local SR.
@@ -742,9 +782,7 @@ def select_guest_disks(answers):
     # Make a list of entries: (text, item)
     entries = []
     for de in diskEntries:
-        (vendor, model, size) = diskutil.getExtendedDiskInfo(de)
-        entry = "%s - %s [%s %s]" % (diskutil.getHumanDiskName(de), diskutil.getHumanDiskSize(size), vendor, model)
-        entries.append((entry, de))
+        entries.append((diskutil.getHumanDiskLabel(de), de))
 
     text = TextboxReflowed(54, "Which disks would you like to use for %s storage?  \n\nOne storage repository will be created that spans the selected disks.  You can choose not to prepare any storage if you wish to create an advanced configuration after installation." % BRAND_GUEST)
     buttons = ButtonBar(tui.screen, [('Ok', 'ok'), ('Back', 'back')])
