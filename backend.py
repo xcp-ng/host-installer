@@ -1535,15 +1535,15 @@ def configureNetworking(mounts, admin_iface, admin_bridge, admin_config, hn_conf
             print >>mc, "NETMASK='%s'" % admin_config.netmask
             if admin_config.gateway:
                 print >>mc, "GATEWAY='%s'" % admin_config.gateway
-            if manual_nameservers:
-                print >>mc, "DNS='%s'" % (','.join(nameservers),)
-            if domain:
-                print >>mc, "DOMAIN='%s'" % domain
         print >>mc, "MODEV6='%s'" % netinterface.NetInterface.getModeStr(admin_config.modev6)
         if admin_config.modev6 == netinterface.NetInterface.Static:
             print >>mc, "IPv6='%s'" % admin_config.ipv6addr
             if admin_config.ipv6_gateway:
                 print >>mc, "IPv6_GATEWAY='%s'" % admin_config.ipv6_gateway
+        if manual_nameservers:
+            print >>mc, "DNS='%s'" % (','.join(nameservers),)
+        if domain:
+                print >>mc, "DOMAIN='%s'" % domain
         if admin_config.vlan:
             print >>mc, "VLAN='%d'" % admin_config.vlan
         mc.close()
@@ -1585,12 +1585,17 @@ def configureNetworking(mounts, admin_iface, admin_bridge, admin_config, hn_conf
     # now we need to write /etc/sysconfig/network
     nfd = open("%s/etc/sysconfig/network" % mounts["root"], "w")
     nfd.write("NETWORKING=yes\n")
-    if admin_config.modev6:
-        nfd.write("NETWORKING_IPV6=yes\n")
-        util.runCmd2(['chroot', mounts['root'], 'systemctl', 'enable', 'ip6tables'])
-    else:
-        nfd.write("NETWORKING_IPV6=no\n")
-        netutil.disable_ipv6_module(mounts["root"])
+    with open("%s/etc/sysctl.d/91-net-ipv6.conf" % mounts["root"], "w") as ipv6_conf:
+        if admin_config.modev6:
+            nfd.write("NETWORKING_IPV6=yes\n")
+            util.runCmd2(['chroot', mounts['root'], 'systemctl', 'enable', 'ip6tables'])
+            for i in ['all', 'default']:
+                ipv6_conf.write('net.ipv6.conf.%s.disable_ipv6=0\n' % i)
+        else:
+            nfd.write("NETWORKING_IPV6=no\n")
+            for i in ['all', 'default']:
+                ipv6_conf.write('net.ipv6.conf.%s.disable_ipv6=1\n' % i)
+            netutil.disable_ipv6_module(mounts["root"])
     nfd.write("IPV6_AUTOCONF=no\n")
     nfd.write('NTPSERVERARGS="iburst prefer"\n')
     nfd.close()

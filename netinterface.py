@@ -25,7 +25,7 @@ class NetInterface:
 
     def __init__(self, mode, hwaddr, ipaddr=None, netmask=None, gateway=None,
                  dns=None, domain=None, vlan=None):
-        assert mode is None or mode == self.Static or mode == self.DHCP
+        assert mode in [None, self.Static, self.DHCP, self.Autoconf]
         if ipaddr == '':
             ipaddr = None
         if netmask == '':
@@ -36,30 +36,24 @@ class NetInterface:
             dns = None
         elif isinstance(dns, str):
             dns = [ dns ]
-        if mode == self.Static:
-            assert ipaddr
-            assert netmask
+        is_static = mode == self.Static
+        if is_static:
+            assert ipaddr and netmask
 
-        self.mode = mode
         self.hwaddr = hwaddr
-        if mode == self.Static:
-            self.ipaddr = ipaddr
-            self.netmask = netmask
-            self.gateway = gateway
-            self.dns = dns
-            self.domain = domain
-        else:
-            self.ipaddr = None
-            self.netmask = None
-            self.gateway = None
-            self.dns = None
-            self.domain = None
-        self.vlan = vlan
 
-        # Initialise IPv6 to None.
         self.modev6 = None
         self.ipv6addr = None
         self.ipv6_gateway = None
+
+        self.mode = mode
+        self.ipaddr = ipaddr if is_static else None
+        self.netmask = netmask if is_static else None
+        self.gateway = gateway if is_static else None
+
+        self.dns = dns if is_static else None
+        self.domain = domain if is_static else None
+        self.vlan = vlan
 
     def __repr__(self):
         hw = "hwaddr = '%s' " % self.hwaddr
@@ -124,7 +118,10 @@ class NetInterface:
 
     def isStatic(self):
         """ Returns true if a static interface configuration is represented. """
-        return self.mode == self.Static
+        return self.mode == self.Static or (self.mode == None and self.modev6 == self.Static)
+
+    def isDHCP(self):
+        return self.mode == self.DHCP or (self.mode == None and self.modev6 == self.DHCP)
 
     def isVlan(self):
         return self.vlan is not None
@@ -143,13 +140,12 @@ class NetInterface:
 
         # Debian style interfaces are only used for the installer; dom0 only uses CentOS style
         # IPv6 is only enabled through answerfiles and so is not supported here.
-        assert self.modev6 is None
-        assert self.mode
+        assert self.modev6 or self.mode
         iface_vlan = self.getInterfaceName(iface)
 
         if self.mode == self.DHCP:
             f.write("iface %s inet dhcp\n" % iface_vlan)
-        else:
+        elif self.mode == self.Static:
             # CA-11825: broadcast needs to be determined for non-standard networks
             bcast = self.getBroadcast()
             f.write("iface %s inet static\n" % iface_vlan)
@@ -160,32 +156,57 @@ class NetInterface:
             if self.gateway:
                 f.write("   gateway %s\n" % self.gateway)
 
+        if self.modev6 == self.DHCP:
+            f.write("iface %s inet6 dhcp\n" % iface_vlan)
+        if self.modev6 == self.Autoconf:
+            f.write("iface %s inet6 auto\n" % iface_vlan)
+        elif self.modev6 == self.Static:
+            f.write("iface %s inet6 static\n" % iface_vlan)
+            f.write("   address %s\n" % self.ipv6addr)
+            if self.ipv6_gateway:
+                f.write("   gateway %s\n" % self.ipv6_gateway)
+
     def writeRHStyleInterface(self, iface):
         """ Write a RedHat-style configuration entry for this interface to
         file object f using interface name iface. """
 
-        assert self.modev6 is None
-        assert self.mode
+        assert self.modev6 or self.mode
         iface_vlan = self.getInterfaceName(iface)
 
         f = open('/etc/sysconfig/network-scripts/ifcfg-%s' % iface_vlan, 'w')
         f.write("DEVICE=%s\n" % iface_vlan)
         f.write("ONBOOT=yes\n")
-        if self.mode == self.DHCP:
+        if self.mode == self.DHCP or self.modev6 == self.DHCP:
             f.write("BOOTPROTO=dhcp\n")
             f.write("PERSISTENT_DHCLIENT=1\n")
         else:
+            f.write("BOOTPROTO=none\n")
+
+        if self.mode == self.Static:
             # CA-11825: broadcast needs to be determined for non-standard networks
             bcast = self.getBroadcast()
-            f.write("BOOTPROTO=none\n")
             f.write("IPADDR=%s\n" % self.ipaddr)
             if bcast is not None:
                 f.write("BROADCAST=%s\n" % bcast)
             f.write("NETMASK=%s\n" % self.netmask)
             if self.gateway:
                 f.write("GATEWAY=%s\n" % self.gateway)
+
+        if self.modev6:
+            f.write("NETWORKING_IPV6=yes\n")
+            f.write("IPV6INIT=yes\n")
+            f.write("IPV6_AUTOCONF=yes\n" if self.modev6 == self.Autoconf else "IPV6_AUTOCONF=no\n")
+        if self.modev6 == self.DHCP:
+            f.write("DHCPV6C=yes\n")
+        elif self.modev6 == self.Static:
+            f.write("IPV6ADDR=%s\n" % self.ipv6addr)
+            if self.ipv6_gateway:
+                prefix = self.ipv6addr.split("/")[1]
+                f.write("IPV6_DEFAULTGW=%s/%s\n" % (self.ipv6_gateway, prefix))
+
         if self.vlan:
             f.write("VLAN=yes\n")
+
         f.close()
 
 
@@ -348,3 +369,15 @@ class NetInterface:
 
         nic.addIPv6(modev6, ipv6addr, gatewayv6)
         return nic
+
+class NetInterfaceV6(NetInterface):
+    def __init__(self, mode, hwaddr, ipaddr=None, netmask=None, gateway=None, dns=None, domain=None, vlan=None):
+        super().__init__(None, hwaddr, None, None, None, dns, domain, vlan)
+
+        is_static = mode == self.Static
+        ipv6addr = None
+        if is_static:
+            assert ipaddr and netmask
+            ipv6addr = ipaddr + "/" + netmask
+
+        self.addIPv6(mode, ipv6addr=ipv6addr, ipv6gw=gateway)
