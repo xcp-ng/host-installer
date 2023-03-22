@@ -16,7 +16,7 @@ def getTextOrNone(nodelist):
             rc = rc + node.data
     return rc == "" and None or rc.strip().encode()
 
-class NetInterface:
+class NetInterface(object):
     """ Represents the configuration of a network interface. """
 
     Static = 1
@@ -372,7 +372,7 @@ class NetInterface:
 
 class NetInterfaceV6(NetInterface):
     def __init__(self, mode, hwaddr, ipaddr=None, netmask=None, gateway=None, dns=None, domain=None, vlan=None):
-        super().__init__(None, hwaddr, None, None, None, dns, domain, vlan)
+        super(NetInterfaceV6, self).__init__(None, hwaddr, None, None, None, dns, domain, vlan)
 
         is_static = mode == self.Static
         ipv6addr = None

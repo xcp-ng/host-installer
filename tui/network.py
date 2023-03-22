@@ -10,6 +10,7 @@ from netinterface import *
 import version
 import os
 import time
+import socket
 
 from snack import *
 
@@ -65,7 +66,7 @@ def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
 
         ipv6 = iface_class == NetInterfaceV6
 
-        gf = GridFormHelp(tui.screen, 'Networking', 'ifconfig', 1, 8)
+        gf = GridFormHelp(tui.screen, 'Networking', 'ifconfig', 1, 10)
         if txt is None:
             txt = "Configuration for %s (%s)" % (nic.name, nic.hwaddr)
         text = TextboxReflowed(45, txt)
@@ -79,13 +80,13 @@ def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
         dns_field = Entry(16)
         vlan_field = Entry(16)
 
-        static = defaults and (defaults.modev6 if ipv6 else defaults.mode) == NetInterface.Static
+        static = bool(defaults and (defaults.modev6 if ipv6 else defaults.mode) == NetInterface.Static)
         dhcp_rb = SingleRadioButton("Automatic configuration (DHCP)", None, not static)
         dhcp_rb.setCallback(dhcp_change, ())
         static_rb = SingleRadioButton("Static configuration:", dhcp_rb, static)
         static_rb.setCallback(dhcp_change, ())
         if ipv6:
-            autoconf_rb = SingleRadioButton("Automatic configuration (Autoconf)", autoconf_rb, 0)
+            autoconf_rb = SingleRadioButton("Automatic configuration (Autoconf)", static_rb, 0)
             autoconf_rb.setCallback(dhcp_change, ())
         dhcp_change()
 
@@ -141,10 +142,10 @@ def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
         gf.add(text, 0, 0, padding=(0, 0, 0, 1))
         gf.add(dhcp_rb, 0, 2, anchorLeft=True)
         gf.add(static_rb, 0, 3, anchorLeft=True)
+        gf.add(entry_grid, 0, 4, padding=(0, 0, 0, 1))
         if ipv6:
-            gf.add(autoconf_rb, 0, 4, anchorLeft=True)
+            gf.add(autoconf_rb, 0, 5, anchorLeft=True)
         # One more line for IPv6 autoconf
-        gf.add(entry_grid, 0, 4 + ipv6, padding=(0, 0, 0, 1))
         gf.add(vlan_cb, 0, 5 + ipv6, anchorLeft=True)
         gf.add(vlan_grid, 0, 6 + ipv6, padding=(0, 0, 0, 1))
         gf.add(buttons, 0, 7 + ipv6, growx=1)
