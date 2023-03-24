@@ -64,6 +64,7 @@ install:
 	    $(DESTDIR)/etc/modules-load.d \
 	    $(DESTDIR)/etc/depmod.d \
 	    $(DESTDIR)/etc/dracut.conf.d \
+	    $(DESTDIR)/etc/systemd/system/sshd.service.d \
 	    $(DESTDIR)/etc/systemd/system/systemd-udevd.d
 
 	$(INSTALL) -m755 startup/interface-rename-sideway startup/early-blacklist $(DESTDIR)/etc/init.d/
@@ -75,6 +76,7 @@ install:
 	$(INSTALL) -m644 startup/depmod.conf $(DESTDIR)/etc/depmod.d/
 	$(INSTALL) -m755 startup/preinit startup/S05ramdisk startup/S06mount $(DESTDIR)/$(INSTALLER_DIR)/
 	$(INSTALL) -m644 startup/systemd-udevd_depmod.conf $(DESTDIR)/etc/systemd/system/systemd-udevd.d/installer.conf
+	$(INSTALL) -m644 startup/sshd_installer.conf $(DESTDIR)/etc/systemd/system/sshd.service.d/
 
  # Generate a multipath configuration from sm's copy, removing
  # the blacklist and blacklist_exception sections.
