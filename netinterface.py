@@ -372,12 +372,14 @@ class NetInterface(object):
 
 class NetInterfaceV6(NetInterface):
     def __init__(self, mode, hwaddr, ipaddr=None, netmask=None, gateway=None, dns=None, domain=None, vlan=None):
-        super(NetInterfaceV6, self).__init__(None, hwaddr, None, None, None, dns, domain, vlan)
+        super(NetInterfaceV6, self).__init__(None, hwaddr, None, None, None, None, None, vlan)
 
         is_static = mode == self.Static
         ipv6addr = None
         if is_static:
             assert ipaddr and netmask
             ipv6addr = ipaddr + "/" + netmask
+            self.dns = dns
+            self.domain = domain
 
         self.addIPv6(mode, ipv6addr=ipv6addr, ipv6gw=gateway)
