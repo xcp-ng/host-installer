@@ -159,8 +159,7 @@ def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
                 # validate input
                 msg = ''
                 if static_rb.selected():
-                    subnet_value = int(subnet_field.value())
-                    invalid_subnet = subnet_value > 128 or subnet_value < 4 if ipv6 else not netutil.valid_ipv4_addr(subnet_field.value())
+                    invalid_subnet = int(subnet_field.value()) > 128 or int(subnet_field.value()) < 4 if ipv6 else not netutil.valid_ipv4_addr(subnet_field.value())
                     if not netutil.valid_ip_address_family(ip_field.value(), ip_family):
                         msg = ip_msg
                     elif invalid_subnet:
