@@ -176,7 +176,7 @@ class NetInterface(object):
         f = open('/etc/sysconfig/network-scripts/ifcfg-%s' % iface_vlan, 'w')
         f.write("DEVICE=%s\n" % iface_vlan)
         f.write("ONBOOT=yes\n")
-        if self.mode == self.DHCP or self.modev6 == self.DHCP:
+        if self.mode == self.DHCP:
             f.write("BOOTPROTO=dhcp\n")
             f.write("PERSISTENT_DHCLIENT=1\n")
         else:
@@ -193,16 +193,21 @@ class NetInterface(object):
                 f.write("GATEWAY=%s\n" % self.gateway)
 
         if self.modev6:
-            f.write("NETWORKING_IPV6=yes\n")
+            with open('/etc/sysconfig/network', 'w') as net_conf:
+                net_conf.write("NETWORKING_IPV6=yes\n")
             f.write("IPV6INIT=yes\n")
+            f.write("IPV6_DEFROUTE=yes\n")
+            f.write("IPV6_DEFAULTDEV=%s\n" % iface_vlan)
             f.write("IPV6_AUTOCONF=yes\n" if self.modev6 == self.Autoconf else "IPV6_AUTOCONF=no\n")
+
         if self.modev6 == self.DHCP:
             f.write("DHCPV6C=yes\n")
+            f.write("PERSISTENT_DHCLIENT_IPV6=yes\n")
+            f.write("IPV6_FORCE_ACCEPT_RA=yes\n")
         elif self.modev6 == self.Static:
             f.write("IPV6ADDR=%s\n" % self.ipv6addr)
             if self.ipv6_gateway:
-                prefix = self.ipv6addr.split("/")[1]
-                f.write("IPV6_DEFAULTGW=%s/%s\n" % (self.ipv6_gateway, prefix))
+                f.write("IPV6_DEFAULTGW=%s\n" % (self.ipv6_gateway))
 
         if self.vlan:
             f.write("VLAN=yes\n")
@@ -379,6 +384,10 @@ class NetInterfaceV6(NetInterface):
         if is_static:
             assert ipaddr and netmask
             ipv6addr = ipaddr + "/" + netmask
+            if dns == '':
+                dns = None
+            elif isinstance(dns, str):
+                dns = [ dns ]
             self.dns = dns
             self.domain = domain
 
