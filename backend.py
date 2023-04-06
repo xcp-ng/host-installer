@@ -1543,7 +1543,7 @@ def configureNetworking(mounts, admin_iface, admin_bridge, admin_config, hn_conf
         if manual_nameservers:
             print >>mc, "DNS='%s'" % (','.join(nameservers),)
         if domain:
-                print >>mc, "DOMAIN='%s'" % domain
+            print >>mc, "DOMAIN='%s'" % domain
         if admin_config.vlan:
             print >>mc, "VLAN='%d'" % admin_config.vlan
         mc.close()
