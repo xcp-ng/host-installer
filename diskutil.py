@@ -380,9 +380,9 @@ def getMdDeviceName(disk):
     rv, out = util.runCmd2(['mdadm', '--detail', '--export', disk],
                            with_stdout=True)
     for line in out.split("\n"):
-        line = line.strip().split('=', 1)
-        if line[0] == 'MD_DEVNAME':
-            return line[1]
+        key, value = line.strip().split('=', 1)
+        if key == 'MD_DEVNAME':
+            return "md%s" % value
 
     return disk
 

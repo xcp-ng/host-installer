@@ -1,0 +1,2 @@
+# disable 65-md-incremental.rules by telling an installer is running
+ENV{ANACONDA}="1"

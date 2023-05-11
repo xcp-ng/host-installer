@@ -115,6 +115,15 @@ Elements common to all answerfiles, both 'installation' and 'restore'
     before proceeding with installation.  Default value is 'false'.
 
 
+  <assemble-raid/>?
+
+    Run `mdadm --assemble --scan` before looking for the device
+    specified in <primary-disk>, <existing-installation>, or
+    <backup-disk>.
+
+    Used to be the default behavior.
+
+
 Elements for 'installation' modes
 ---------------------------------
 
