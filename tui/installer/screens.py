@@ -739,11 +739,12 @@ def get_sr_type(answers):
                                    for disk in guest_disks)
 
     if not need_large_block_sr_type or not constants.SR_TYPE_LARGE_BLOCK:
-        srtype = answers.get('sr-type', constants.SR_TYPE_LVM)
-        rb = RadioBar(tui.screen, (("LVM: block based. Thick provisioning.",
+        srtype = answers.get('sr-type', constants.SR_TYPE_EXT)
+        rb = RadioBar(tui.screen, (("EXT: file based. Thin provisioning.",
+                                    constants.SR_TYPE_EXT, srtype == constants.SR_TYPE_EXT),
+                                   ("LVM: block based. Thick provisioning.",
                                     constants.SR_TYPE_LVM, srtype == constants.SR_TYPE_LVM),
-                                   ("EXT: file based. Thin provisioning.",
-                                    constants.SR_TYPE_EXT, srtype == constants.SR_TYPE_EXT)))
+                                   ))
         content = rb
         get_type = lambda: rb.getSelection()
         buttons = ButtonBar(tui.screen, [('Ok', 'ok'), ('Back', 'back')])
