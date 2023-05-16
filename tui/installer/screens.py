@@ -676,9 +676,9 @@ def select_guest_disks(answers):
     for (c_text, c_item) in entries:
         cbt.append(c_text, c_item, c_item in currently_selected)
     rb_title = Textbox(15, 1, "Storage type")
-    rb = RadioBar(tui.screen, (("LVM: block based. May be faster. Thick provisioning.",
+    rb = RadioBar(tui.screen, (("LVM: block based. Thick provisioning.",
                                 constants.SR_TYPE_LVM, srtype == constants.SR_TYPE_LVM),
-                               ("EXT: file based. May be slower. Thin provisioning.",
+                               ("EXT: file based. Thin provisioning.",
                                 constants.SR_TYPE_EXT, srtype == constants.SR_TYPE_EXT)))
 
     gf = GridFormHelp(tui.screen, 'Virtual Machine Storage', 'guestdisk:info', 1, 5)
