@@ -634,6 +634,15 @@ def select_primary_disk(answers):
 
         tui.update_help_line([None, "<F5> more info"])
 
+        if len(entries) < 2:
+            logger.log("not enough disks, not proposing RAID creation")
+            propose_raid = False
+        elif any(disk.startswith("/dev/md") for label, disk in entries):
+            logger.log("existing md found, not proposing RAID creation")
+            propose_raid = False
+        else:
+            propose_raid = True
+
         scroll, height = snackutil.scrollHeight(4, len(entries))
         (button, entry) = snackutil.ListboxChoiceWindowEx(
             tui.screen,
@@ -642,7 +651,8 @@ def select_primary_disk(answers):
 
 You may need to change your system settings to boot from this disk.""" % (MY_PRODUCT_BRAND),
             entries,
-            ['Ok', 'Software RAID', 'Back'], 55, scroll, height, default, help='pridisk:info',
+            ['Ok', 'Software RAID', 'Back'] if propose_raid else ['Ok', 'Back'],
+            55, scroll, height, default, help='pridisk:info',
             hotkeys={'F5': disk_more_info})
 
         tui.screen.popHelpLine()
