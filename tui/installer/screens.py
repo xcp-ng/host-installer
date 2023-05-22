@@ -745,7 +745,7 @@ def select_guest_disks(answers):
         currently_selected = answers['guest-disks']
     else:
         currently_selected = answers['primary-disk']
-    srtype = constants.SR_TYPE_LVM
+    srtype = constants.SR_TYPE_EXT
     if 'sr-type' in answers:
         srtype = answers['sr-type']
 
@@ -763,10 +763,11 @@ def select_guest_disks(answers):
     for (c_text, c_item) in entries:
         cbt.append(c_text, c_item, c_item in currently_selected)
     rb_title = Textbox(15, 1, "Storage type")
-    rb = RadioBar(tui.screen, (("LVM: block based. May be faster. Thick provisioning.",
+    rb = RadioBar(tui.screen, (("EXT: file based. Thin provisioning.",
+                                constants.SR_TYPE_EXT, srtype == constants.SR_TYPE_EXT),
+                               ("LVM: block based. Thick provisioning.",
                                 constants.SR_TYPE_LVM, srtype == constants.SR_TYPE_LVM),
-                               ("EXT: file based. May be slower. Thin provisioning.",
-                                constants.SR_TYPE_EXT, srtype == constants.SR_TYPE_EXT)))
+                               ))
 
     gf = GridFormHelp(tui.screen, 'Virtual Machine Storage', 'guestdisk:info', 1, 5)
     gf.add(text, 0, 0, padding=(0, 0, 0, 1))
