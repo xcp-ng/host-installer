@@ -857,7 +857,7 @@ def get_name_service_configuration(answers):
         for entry in [ns1_entry, ns2_entry, ns3_entry]:
             entry.setFlags(FLAG_DISABLED, enabled)
 
-    hide_rb = answers['net-admin-configuration'].isStatic()
+    hide_rb = answers['net-admin-configuration'].isStatic4()
 
     # HOSTNAME:
     hn_title = Textbox(len("Hostname Configuration"), 1, "Hostname Configuration")
@@ -987,7 +987,7 @@ def get_name_service_configuration(answers):
                 answers['manual-nameservers'][1].append(ns2_entry.value())
                 if ns3_entry.value() != '':
                     answers['manual-nameservers'][1].append(ns3_entry.value())
-            if 'net-admin-configuration' in answers and answers['net-admin-configuration'].isStatic():
+            if 'net-admin-configuration' in answers and answers['net-admin-configuration'].isStatic4():
                 answers['net-admin-configuration'].dns = answers['manual-nameservers'][1]
         else:
             answers['manual-nameservers'] = (False, None)
@@ -1070,7 +1070,7 @@ def get_time_configuration_method(answers):
     default = None
     if "ntp-config-method" in answers:
         default = selectDefault(answers['ntp-config-method'], entries)
-    if answers['net-admin-configuration'].isStatic():
+    if answers['net-admin-configuration'].isStatic4():
         default = ENTRY_DEFAULT_NTP
 
     (button, entry) = ListboxChoiceWindow(
