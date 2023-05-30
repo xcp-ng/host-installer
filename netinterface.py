@@ -167,8 +167,7 @@ class NetInterface(Object):
         """ Write a RedHat-style configuration entry for this interface to
         file object f using interface name iface. """
 
-        assert self.modev6 is None
-        assert self.mode
+        assert self.modev6 or self.mode
         iface_vlan = self.getInterfaceName(iface)
 
         f = open('/etc/sysconfig/network-scripts/ifcfg-%s' % iface_vlan, 'w')
@@ -177,7 +176,7 @@ class NetInterface(Object):
         if self.mode == self.DHCP:
             f.write("BOOTPROTO=dhcp\n")
             f.write("PERSISTENT_DHCLIENT=1\n")
-        else:
+        elif self.mode == self.Static:
             # CA-11825: broadcast needs to be determined for non-standard networks
             bcast = self.getBroadcast()
             f.write("BOOTPROTO=none\n")
@@ -187,6 +186,27 @@ class NetInterface(Object):
             f.write("NETMASK=%s\n" % self.netmask)
             if self.gateway:
                 f.write("GATEWAY=%s\n" % self.gateway)
+
+        if self.modev6:
+            with open('/etc/sysconfig/network', 'w') as net_conf:
+                net_conf.write("NETWORKING_IPV6=yes\n")
+            f.write("IPV6INIT=yes\n")
+            f.write("IPV6_DEFROUTE=yes\n")
+            f.write("IPV6_DEFAULTDEV=%s\n" % iface_vlan)
+
+        if self.modev6 == self.DHCP:
+            f.write("DHCPV6C=yes\n")
+            f.write("PERSISTENT_DHCLIENT_IPV6=yes\n")
+            f.write("IPV6_FORCE_ACCEPT_RA=yes\n")
+            f.write("IPV6_AUTOCONF=no\n")
+        elif self.modev6 == self.Static:
+            f.write("IPV6ADDR=%s\n" % self.ipv6addr)
+            if self.ipv6_gateway:
+                f.write("IPV6_DEFAULTGW=%s\n" % (self.ipv6_gateway))
+            f.write("IPV6_AUTOCONF=no\n")
+        elif self.modev6 == self.Autoconf:
+            f.write("IPV6_AUTOCONF=yes\n")
+
         if self.vlan:
             f.write("VLAN=yes\n")
         f.close()
