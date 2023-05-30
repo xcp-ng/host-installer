@@ -146,13 +146,12 @@ class NetInterface(Object):
 
         # Debian style interfaces are only used for the installer; dom0 only uses CentOS style
         # IPv6 is only enabled through answerfiles and so is not supported here.
-        assert self.modev6 is None
-        assert self.mode
+        assert self.modev6 or self.mode
         iface_vlan = self.getInterfaceName(iface)
 
         if self.mode == self.DHCP:
             f.write("iface %s inet dhcp\n" % iface_vlan)
-        else:
+        elif self.mode == self.Static:
             # CA-11825: broadcast needs to be determined for non-standard networks
             bcast = self.getBroadcast()
             f.write("iface %s inet static\n" % iface_vlan)
@@ -162,6 +161,16 @@ class NetInterface(Object):
             f.write("   netmask %s\n" % self.netmask)
             if self.gateway:
                 f.write("   gateway %s\n" % self.gateway)
+
+        if self.modev6 == self.DHCP:
+            f.write("iface %s inet6 dhcp\n" % iface_vlan)
+        elif self.modev6 == self.Autoconf:
+            f.write("iface %s inet6 auto\n" % iface_vlan)
+        elif self.modev6 == self.Static:
+            f.write("iface %s inet6 static\n" % iface_vlan)
+            f.write("   address %s\n" % self.ipv6addr)
+            if self.ipv6_gateway:
+                f.write("   gateway %s\n" % self.ipv6_gateway)
 
     def writeRHStyleInterface(self, iface):
         """ Write a RedHat-style configuration entry for this interface to
