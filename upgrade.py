@@ -474,6 +474,11 @@ class ThirdGenUpgrader(Upgrader):
             nfd.write("NETWORKING_IPV6=no\n")
             nfd.close()
             netutil.disable_ipv6_module(mounts["root"])
+        else:
+            # Enable IPV6
+            with open("%s/etc/sysctl.d/91-net-ipv6.conf" % mounts["root"], "w") as ipv6_conf:
+                for i in ['all', 'default']:
+                    ipv6_conf.write('net.ipv6.conf.%s.disable_ipv6=0\n' % i)
 
         # handle the conversion of devices from aacraid to smartpqi
         primary_disk = self.source.getInventoryValue("PRIMARY_DISK")
