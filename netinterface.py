@@ -122,9 +122,13 @@ class NetInterface(object):
             return False
         return self.mode or self.modev6
 
-    def isStatic(self):
-        """ Returns true if a static interface configuration is represented. """
+    def isStatic4(self):
+        """ Returns true if an IPv4 static interface configuration is represented. """
         return self.mode == self.Static
+
+    def isStatic6(self):
+        """ Returns true if an IPv6 static interface configuration is represented. """
+        return self.modev6 == self.Static
 
     def isVlan(self):
         return self.vlan is not None
@@ -167,7 +171,7 @@ class NetInterface(object):
 
 
     def waitUntilUp(self, iface):
-        if not self.isStatic():
+        if not self.isStatic4():
             return True
         if not self.gateway:
             return True
