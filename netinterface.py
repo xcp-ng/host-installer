@@ -214,14 +214,18 @@ class NetInterface(object):
 
 
     def waitUntilUp(self, iface):
-        if not self.isStatic4():
-            return True
-        if not self.gateway:
-            return True
+        iface_name = self.getInterfaceName(iface)
+        if self.isStatic4() and self.gateway and util.runCmd2(
+            ['/usr/sbin/arping', '-f', '-w', '120', '-I', iface_name, self.gateway]
+        ):
+            return False
 
-        rc = util.runCmd2(['/usr/sbin/arping', '-f', '-w', '120', '-I',
-                           self.getInterfaceName(iface), self.gateway])
-        return rc == 0
+        if self.isStatic6() and self.ipv6_gateway and util.runCmd2(
+            ['/usr/sbin/ndisc6', '-1', '-w', '120', self.ipv6_gateway, iface_name]
+        ):
+            return False
+
+        return True
 
     @staticmethod
     def getModeStr(mode):
