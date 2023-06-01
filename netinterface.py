@@ -16,7 +16,7 @@ def getTextOrNone(nodelist):
             rc = rc + node.data
     return rc == "" and None or rc.strip().encode()
 
-class NetInterface:
+class NetInterface(object):
     """ Represents the configuration of a network interface. """
 
     Static = 1
