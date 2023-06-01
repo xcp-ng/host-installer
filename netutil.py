@@ -92,7 +92,7 @@ def writeResolverFile(configuration, filename):
 
     for iface in configuration:
         settings = configuration[iface]
-        if settings.isStatic4() and settings.dns:
+        if (not settings.isDynamic()) and settings.dns:
             if settings.dns:
                 for server in settings.dns:
                     outfile.write("nameserver %s\n" % server)

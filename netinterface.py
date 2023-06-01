@@ -130,6 +130,10 @@ class NetInterface(object):
         """ Returns true if an IPv6 static interface configuration is represented. """
         return self.modev6 == self.Static
 
+    def isDynamic(self):
+        """ Returns true if a dynamic interface configuration is represented. """
+        return self.mode == self.DHCP or self.modev6 == self.DHCP or self.modev6 == self.Autoconf
+
     def isVlan(self):
         return self.vlan is not None
 
