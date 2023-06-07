@@ -705,6 +705,9 @@ class ThirdGenUpgrader(Upgrader):
         # Keep user multipath configuration
         restore_list += [{'dir': 'etc/multipath/conf.d', 're': re.compile(r'custom.*\.conf')}]
 
+        # Keep IPv6 enablement/disablement upon upgrades
+        restore_list += ['etc/sysctl.d/91-net-ipv6.conf']
+
         return restore_list
 
     completeUpgradeArgs = ['mounts', 'installation-to-overwrite', 'primary-disk', 'backup-partnum', 'logs-partnum', 'net-admin-interface', 'net-admin-bridge', 'net-admin-configuration']
