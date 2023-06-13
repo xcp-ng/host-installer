@@ -4,12 +4,12 @@ import os
 import diskutil
 import util
 import re
+import socket
 import subprocess
 import time
 import errno
 from xcp import logger
 from xcp.net.biosdevname import all_devices_all_names
-from socket import inet_ntoa
 from struct import pack
 
 class NIC:
@@ -92,7 +92,7 @@ def writeResolverFile(configuration, filename):
 
     for iface in configuration:
         settings = configuration[iface]
-        if settings.isStatic() and settings.dns:
+        if (not settings.isDynamic()) and settings.dns:
             if settings.dns:
                 for server in settings.dns:
                     outfile.write("nameserver %s\n" % server)
@@ -137,7 +137,11 @@ def interfaceUp(interface):
     if rc != 0:
         return False
     inets = filter(lambda x: x.startswith("    inet "), out.split("\n"))
-    return len(inets) == 1
+    if len(inets) == 1:
+        return True
+
+    inet6s = filter(lambda x: x.startswith("    inet6 "), out.split("\n"))
+    return len(inet6s) > 1  # Not just the fe80:: address
 
 # work out if a link is up:
 def linkUp(interface):
@@ -225,16 +229,21 @@ def valid_vlan(vlan):
         return False
     return True
 
+def valid_ip_address_family(addr, family):
+    try:
+        socket.inet_pton(family, addr)
+        return True
+    except socket.error:
+        return False
+
+def valid_ipv4_addr(addr):
+    return valid_ip_address_family(addr, socket.AF_INET)
+
+def valid_ipv6_addr(addr):
+    return valid_ip_address_family(addr, socket.AF_INET6)
+
 def valid_ip_addr(addr):
-    if not re.match('^\d+\.\d+\.\d+\.\d+$', addr):
-        return False
-    els = addr.split('.')
-    if len(els) != 4:
-        return False
-    for el in els:
-        if int(el) > 255:
-            return False
-    return True
+    return valid_ipv4_addr(addr) or valid_ipv6_addr(addr)
 
 def network(ipaddr, netmask):
     ip = map(int,ipaddr.split('.',3))
@@ -246,7 +255,7 @@ def prefix2netmask(mask):
     bits = 0
     for i in xrange(32-mask, 32):
         bits |= (1 << i)
-    return inet_ntoa(pack('>I', bits))
+    return socket.inet_ntoa(pack('>I', bits))
 
 class NetDevices:
     def __init__(self):
