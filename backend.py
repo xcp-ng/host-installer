@@ -1503,15 +1503,15 @@ def configureNetworking(mounts, admin_iface, admin_bridge, admin_config, hn_conf
             print("NETMASK='%s'" % admin_config.netmask, file=mc)
             if admin_config.gateway:
                 print("GATEWAY='%s'" % admin_config.gateway, file=mc)
-            if manual_nameservers:
-                print("DNS='%s'" % (','.join(nameservers),), file=mc)
-            if domain:
-                print("DOMAIN='%s'" % domain, file=mc)
         print("MODEV6='%s'" % netinterface.NetInterface.getModeStr(admin_config.modev6), file=mc)
         if admin_config.modev6 == netinterface.NetInterface.Static:
             print("IPv6='%s'" % admin_config.ipv6addr, file=mc)
             if admin_config.ipv6_gateway:
                 print("IPv6_GATEWAY='%s'" % admin_config.ipv6_gateway, file=mc)
+        if manual_nameservers:
+            print("DNS='%s'" % (','.join(nameservers),), file=mc)
+        if domain:
+            print("DOMAIN='%s'" % domain, file=mc)
         if admin_config.vlan:
             print("VLAN='%d'" % admin_config.vlan, file=mc)
         mc.close()
@@ -1554,12 +1554,18 @@ def configureNetworking(mounts, admin_iface, admin_bridge, admin_config, hn_conf
     # now we need to write /etc/sysconfig/network
     nfd = open("%s/etc/sysconfig/network" % mounts["root"], "w")
     nfd.write("NETWORKING=yes\n")
-    if admin_config.modev6:
+    ipv6 = admin_config.modev6 is not None
+    if ipv6:
         nfd.write("NETWORKING_IPV6=yes\n")
         util.runCmd2(['chroot', mounts['root'], 'systemctl', 'enable', 'ip6tables'])
     else:
         nfd.write("NETWORKING_IPV6=no\n")
         netutil.disable_ipv6_module(mounts["root"])
+
+    with open("%s/etc/sysctl.d/91-net-ipv6.conf" % mounts["root"], "w") as ipv6_conf:
+        for i in ['all', 'default']:
+            ipv6_conf.write('net.ipv6.conf.%s.disable_ipv6=%d\n' % (i, int(not ipv6)))
+
     nfd.write("IPV6_AUTOCONF=no\n")
     nfd.write('NTPSERVERARGS="iburst prefer"\n')
     nfd.close()
