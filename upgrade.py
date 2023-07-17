@@ -701,6 +701,9 @@ class ThirdGenUpgrader(Upgrader):
         # XAPI firewall-port plugin
         restore_list += ['etc/sysconfig/iptables']
 
+        # Keep user multipath configuration
+        restore_list += [{'dir': 'etc/multipath/conf.d', 're': re.compile(r'custom.*\.conf')}]
+
         return restore_list
 
     completeUpgradeArgs = ['mounts', 'installation-to-overwrite', 'primary-disk', 'backup-partnum', 'logs-partnum', 'net-admin-interface', 'net-admin-bridge', 'net-admin-configuration']
