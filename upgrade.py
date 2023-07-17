@@ -448,6 +448,9 @@ class ThirdGenUpgrader(Upgrader):
         # NRPE service config
         self.restore_list += ['etc/nagios/nrpe.cfg', {'dir': 'etc/nrpe.d'}]
 
+        # Keep user multipath configuration
+        self.restore_list += [{'dir': 'etc/multipath/conf.d', 're': r'custom.*\.conf'}]
+
     completeUpgradeArgs = ['mounts', 'installation-to-overwrite', 'primary-disk', 'backup-partnum', 'logs-partnum', 'net-admin-interface', 'net-admin-bridge', 'net-admin-configuration']
     def completeUpgrade(self, mounts, prev_install, target_disk, backup_partnum, logs_partnum, admin_iface, admin_bridge, admin_config):
 
