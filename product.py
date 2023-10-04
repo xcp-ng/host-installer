@@ -604,17 +604,29 @@ def findXenSourceBackups():
         b = None
         try:
             b = util.TempMount(p, 'backup-', ['ro'])
-            if os.path.exists(os.path.join(b.mount_point, '.xen-backup-partition')):
-                backup = XenServerBackup(p, b.mount_point)
-                logger.log("Found a backup: %s" % (repr(backup),))
-                if backup.version >= XENSERVER_MIN_VERSION and \
-                        backup.version <= THIS_PLATFORM_VERSION:
-                    backups.append(backup)
+            if not os.path.exists(os.path.join(b.mount_point, '.xen-backup-partition')):
+                continue
+
+            backup = XenServerBackup(p, b.mount_point)
+            logger.log("Found a backup: %s" % (repr(backup),))
+
+            if backup.version < XENSERVER_MIN_VERSION:
+                logger.log("findXenSourceBackups: ignoring, platform too old: %s < %s" %
+                           (backup.version, XENSERVER_MIN_VERSION))
+                continue
+            if backup.version > THIS_PLATFORM_VERSION:
+                logger.log("findXenSourceBackups: ignoring later platform: %s > %s" %
+                           (backup.version, THIS_PLATFORM_VERSION))
+                continue
+
+            backups.append(backup)
+
         except Exception as ex:
             logger.info("findXenSourceBackups caught exception for partition %s", p, exc_info=1)
             pass
-        if b:
-            b.unmount()
+        finally:
+            if b:
+                b.unmount()
 
     return backups
 
