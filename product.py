@@ -618,6 +618,10 @@ def findXenSourceBackups():
                 logger.log("findXenSourceBackups: ignoring later platform: %s > %s" %
                            (backup.version, THIS_PLATFORM_VERSION))
                 continue
+            if not os.path.exists(backup.root_disk):
+                logger.error("findXenSourceBackups: PRIMARY_DISK=%r does not exist" %
+                             (backup.root_disk,))
+                continue
 
             backups.append(backup)
 
