@@ -806,6 +806,7 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
         count = 0
         total = 0
         verify_count = 0
+        gpg_error_message = None
         progressLine = re.compile(r'.*?(\d+)/(\d+)$')
         progressLineV5 = re.compile(r'^\[ *(\d+)/(\d+)\] (Installing|Upgrading) ')
 
@@ -844,6 +845,27 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
                 verify_count += 1
                 # verification, from 90% to 100%
                 progress_callback(90 + int((verify_count * 10.0) / total))
+            elif ' in import_key_to_pubring' in line:
+                gpg_error_message = "Signature key import failed"
+            # add any other instance of uncaught GpgmeError before this like
+            elif 'gpgme.GpgmeError: ' in line:
+                gpg_error_message = "Cryptography-related yum crash"
+
+            elif re.search("Couldn't open file [^ ]*/repodata/repomd.xml.asc", line):
+                # would otherwise be mistaken for "pubring import" !?
+                gpg_error_message = "No signature on repository metadata"
+            elif 'repomd.xml signature could not be verified' in line:
+                gpg_error_message = "Repository signature verification failure"
+
+            elif match:= re.search("Public key for ([^ ]*.rpm) is not installed", stderr):
+                gpg_error_message = "Missing key for %s" % (match.group(1),)
+            elif match := re.search("Package ([^ ]*.rpm) is not signed", stderr):
+                gpg_error_message = "Package not signed: %s" % (match.group(1),)
+            elif match := re.search(r" ([^ ]*): \[Errno [0-9]*\] No more mirrors to try", stderr):
+                # rpm not found or corrupted/re-signed/etc
+                gpg_error_rpm_not_found = match.group(1)
+                gpg_error_message = "Cannot find valid rpm for %s" % (match.group(1),)
+
             else:
                 m = progressLineV5.match(line)
                 total = 0
@@ -855,7 +877,9 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
                 logger.log("DNF exited with %d" % rv)
             else:
                 logger.log("DNF killed by signal: %s" % (signal.strsignal(-rv),))
-            raise ErrorInstallingPackage("Error installing packages")
+            if gpg_error_message is None:
+                gpg_error_message = "Error installing packages"
+            raise ErrorInstallingPackage(gpg_error_message)
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir), ignore_errors=True)
 
