@@ -832,12 +832,59 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
         rv = p.wait()
         stderr.seek(0)
         stderr = stderr.read()
+        gpg_uncaught_error = 0
+        gpg_error_pubring_import = 0
+        gpg_error_not_signed = 0
+        gpg_error_bad_repo_sig = 0
+        gpg_error_rpm_missing_key = None
+        gpg_error_rpm_not_signed = None
+        gpg_error_rpm_not_found = None
         if stderr:
             logger.log("YUM stderr: %s" % stderr.strip())
 
+            if stderr.find(' in import_key_to_pubring') >= 0:
+                gpg_error_pubring_import = 1
+            # add any other instance of uncaught GpgmeError before this like
+            elif stderr.find('gpgme.GpgmeError: ') >= 0:
+                gpg_uncaught_error = 1
+
+            elif re.search("Couldn't open file [^ ]*/repodata/repomd.xml.asc", stderr):
+                # would otherwise be mistaken for "pubring import" !?
+                gpg_error_not_signed = 1
+            elif stderr.find('repomd.xml signature could not be verified') >= 0:
+                gpg_error_bad_repo_sig = 1
+
+            else:
+                match = re.search("Public key for ([^ ]*.rpm) is not installed", stderr)
+                if match:
+                    gpg_error_rpm_missing_key = match.group(1)
+                match = re.search("Package ([^ ]*.rpm) is not signed", stderr)
+                if match:
+                    gpg_error_rpm_not_signed = match.group(1)
+                match = re.search(r" ([^ ]*): \[Errno [0-9]*\] No more mirrors to try", stderr)
+                if match:
+                    gpg_error_rpm_not_found = match.group(1)
+
         if rv:
             logger.log("Yum exited with %d" % rv)
-            raise ErrorInstallingPackage("Error installing packages")
+            if gpg_error_pubring_import:
+                errmsg = "Signature key import failed"
+            elif gpg_uncaught_error:
+                errmsg = "Cryptography-related yum crash"
+            elif gpg_error_not_signed:
+                errmsg = "No signature on repository metadata"
+            elif gpg_error_bad_repo_sig:
+                errmsg = "Repository signature verification failure"
+            elif gpg_error_rpm_missing_key:
+                errmsg = "Missing key for %s" % (gpg_error_rpm_missing_key,)
+            elif gpg_error_rpm_not_signed:
+                errmsg = "Package not signed: %s" % (gpg_error_rpm_not_signed,)
+            elif gpg_error_rpm_not_found:
+                # rpm not found or corrupted/re-signed/etc
+                errmsg = "Cannot find valid rpm for %s" % (gpg_error_rpm_not_found,)
+            else:
+                errmsg = "Error installing packages"
+            raise ErrorInstallingPackage(errmsg)
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir))
 
