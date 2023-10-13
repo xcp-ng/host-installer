@@ -298,6 +298,9 @@ def getDiskDeviceSize(dev):
         return int(__readOneLineFile__("/sys/block/%s/device/block/size" % dev))
     elif os.path.exists("/sys/block/%s/size" % dev):
         return int(__readOneLineFile__("/sys/block/%s/size" % dev))
+    else:
+        raise Exception("%s not found as %s or %s" % (dev, "/sys/block/%s/device/block/size",
+                                                      "/sys/block/%s/size"))
 
 def getDiskSerialNumber(dev):
     # For Multipath nodes return info about 1st slave
