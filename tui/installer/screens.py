@@ -99,6 +99,9 @@ To setup advanced storage classes press <F10>.
             tui.fcoe.select_fcoe_ifaces(answers)
             tui.update_help_line([None, "<F9> load driver"])
 
+    if driver_answers['driver-repos']:
+        answers['driver-repos'] = driver_answers['driver-repos']
+
     tui.screen.popHelpLine()
 
     if button == 'reboot':
