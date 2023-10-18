@@ -91,6 +91,9 @@ Please make sure you have backed up any data you wish to preserve before proceed
             load_driver(driver_answers)
             tui.update_help_line([None, "<F9> load driver"])
 
+    if driver_answers['driver-repos']:
+        answers['driver-repos'] = driver_answers['driver-repos']
+
     tui.screen.popHelpLine()
 
     if button == 'reboot':
