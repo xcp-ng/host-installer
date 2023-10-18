@@ -485,10 +485,14 @@ def confirm_erase_volume_groups(answers):
     return RIGHT_FORWARDS
 
 def use_extra_media(answers):
+    message = "Would you like to install any Supplemental Packs?"
+    if "driver-repos" in answers:
+        message += ("  You previously loaded one or more Driver Disks, if you wish to"
+                    " include these drivers on the installed system, you must install them now.")
     rc = snackutil.ButtonChoiceWindowEx(
         tui.screen,
         "Supplemental Packs",
-        "Would you like to install any Supplemental Packs?",
+        message,
         ['Yes', 'No'],
         default=1, help='suppack'
         )
