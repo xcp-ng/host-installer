@@ -285,7 +285,11 @@ Format of 'source' and 'driver-source'
 
     Local SR type.
 
-    Default: lvm
+    Default: ext
+
+    Note that while it reflects the default choice in the text UI,
+    this differs from XenServer and from XCP-ng releases lower than
+    8.3, where the default was "lvm".
 
 
 Upgrade Elements
