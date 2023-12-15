@@ -121,6 +121,9 @@ To setup advanced storage classes press <F10>.
             tui.fcoe.select_fcoe_ifaces(answers)
             tui.update_help_line([None, "<F9> load driver"])
 
+    if driver_answers['driver-repos']:
+        answers['driver-repos'] = driver_answers['driver-repos']
+
     tui.screen.popHelpLine()
 
     if button == 'reboot':
@@ -524,10 +527,14 @@ def confirm_erase_volume_groups(answers):
     return RIGHT_FORWARDS
 
 def use_extra_media(answers):
+    message = "Would you like to install any Supplemental Packs?"
+    if "driver-repos" in answers:
+        message += ("  You previously loaded one or more Driver Disks, if you wish to"
+                    " include these drivers on the installed system, you must install them now.")
     rc = snackutil.ButtonChoiceWindowEx(
         tui.screen,
         "Supplemental Packs",
-        "Would you like to install any Supplemental Packs?",
+        message,
         ['Yes', 'No'],
         default=1, help='suppack'
         )
