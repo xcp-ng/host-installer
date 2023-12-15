@@ -15,6 +15,10 @@ Currently available feature flags are:
     This only impacts the UI, the <source> answerfile construct still
     allows to include supplemental packs without this feature flag.
 
+    This also has no impact if users previously load a driver disk:
+    they will get the opportunity to insert it again to get the driver
+    installed on the host.
+
   large-block-capable-sr-type
 
     Allow the use of an SR type for local storage that (unlike "lvm" and

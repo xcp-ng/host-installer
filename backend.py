@@ -450,7 +450,8 @@ def performInstallation(answers, ui_package, interactive):
         for device in getRemovableDeviceList():
             util.runCmd2(['eject', device])
 
-    if interactive and constants.HAS_SUPPLEMENTAL_PACKS:
+    if interactive and (constants.HAS_SUPPLEMENTAL_PACKS or
+                        "driver-repos" in answers):
         # Add supp packs in a loop
         while True:
             media_ans = dict(answers_pristine)
