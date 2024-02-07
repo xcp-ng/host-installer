@@ -187,7 +187,10 @@ class Upgrader(object):
 class ThirdGenUpgrader(Upgrader):
     """ Upgrader class for series 7+ Retail products. """
     upgrades_product = version.PRODUCT_NAME
-    upgrades_versions = [ (product.XENSERVER_MIN_VERSION, product.THIS_PLATFORM_VERSION) ]
+    # XCP-ng 8.3beta2 only: prevent upgrade from XS8 and 8.3 iself to
+    # workaround the "missing certusers" issue, to be fixed in beta3
+    max_platform = Version([3, 2, 1]) # we and XS8 are 3.4.0
+    upgrades_versions = [ (product.XENSERVER_MIN_VERSION, max_platform) ]
     upgrades_variants = [ 'Retail' ]
     requires_backup = True
     optional_backup = False
