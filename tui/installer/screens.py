@@ -49,7 +49,9 @@ def kernel_warning(answers):
             "Alternate kernel",
             """WARNING: you chose to install our alternative kernel (kernel-alt).
 
-It is based on our main kernel + upstream kernel.org patches, so it should be stable by construction. However it receives less testing than the main kernel.
+This kernel is only provided for debugging purposes.
+
+It is based on our main kernel + upstream kernel.org patches, so it should be stable by construction. However it receives less testing than the main kernel, and is not security-supported.
 
 A boot menu entry for kernel-alt will be added, but we will still boot the main kernel by default.
 
