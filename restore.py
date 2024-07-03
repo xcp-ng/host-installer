@@ -192,6 +192,11 @@ def restoreFromBackup(backup, progress=lambda x: ()):
             util.assertDir(os.path.dirname(dst_file))
             boot_config.commit(dst_file)
 
+            # prepare for boot loader restoration, before unmounting backup_fs
+            if boot_config.src_fmt == 'grub2' and efi_boot:
+                branding = util.readKeyValueFile(os.path.join(backup_fs.mount_point, constants.INVENTORY_FILE))
+                branding['product-brand'] = branding['PRODUCT_BRAND']
+
             # repartition if needed
             backup_fs.unmount()
             if restore_partitions:
@@ -209,8 +214,7 @@ def restoreFromBackup(backup, progress=lambda x: ()):
             # restore boot loader
             if boot_config.src_fmt == 'grub2':
                 if efi_boot:
-                    branding = util.readKeyValueFile(os.path.join(backup_fs.mount_point, constants.INVENTORY_FILE))
-                    branding['product-brand'] = branding['PRODUCT_BRAND']
+                    mounts['esp'] = esp
                     backend.setEfiBootEntry(mounts, disk_device, boot_partnum, constants.INSTALL_TYPE_RESTORE, branding)
                 else:
                     if location == constants.BOOT_LOCATION_MBR:
