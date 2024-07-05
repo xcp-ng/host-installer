@@ -183,7 +183,7 @@ class YumRepository(Repository):
         installed_repos[str(self)] = self
         return installed_repos
 
-    def _installPackages(self, progress_callback, mounts, kernel_alt):
+    def _installPackages(self, progress_callback, mounts):
         assert self._targets is not None
         url = self._accessor.url()
         logger.log("URL: " + str(url))
@@ -205,15 +205,13 @@ baseurl=%s
                 yum_conf.write(repo_config)
 
         self.disableInitrdCreation(mounts['root'])
-        if kernel_alt:
-            self._targets.append('kernel-alt')
         installFromYum(self._targets, mounts, progress_callback, self._cachedir)
         self.enableInitrdCreation()
 
-    def installPackages(self, progress_callback, mounts, kernel_alt=False):
+    def installPackages(self, progress_callback, mounts):
         self._accessor.start()
         try:
-            self._installPackages(progress_callback, mounts, kernel_alt)
+            self._installPackages(progress_callback, mounts)
         finally:
             self._accessor.finish()
 
@@ -889,9 +887,10 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir))
 
-def installFromRepos(progress_callback, repos, mounts):
+def installFromRepos(progress_callback, repos, mounts, kernel_alt):
     """Install from a stacked set of repositories"""
 
+    logger.log("installFromRepos, kernel_alt=%s" % (kernel_alt,))
     cachedir = "var/cache/yum/installer"
     for repo in repos:
         repo._accessor.start()
@@ -924,6 +923,8 @@ baseurl=%s
             if repo._targets:
                 targets += repo._targets
         targets = list(set(targets))
+        if kernel_alt:
+            targets.append('kernel-alt')
 
         installFromYum(targets, mounts, progress_callback, cachedir)
         repos[0].enableInitrdCreation()
