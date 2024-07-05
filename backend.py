@@ -157,7 +157,7 @@ def getPrepSequence(ans, interactive):
 
 def getMainRepoSequence(ans, repos):
     seq = []
-    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts')], [],
+    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts'), a.get('kernel-alt')], [],
                 progress_scale=100,
                 pass_progress_callback=True,
                 progress_text="Installing %s..." % (", ".join([repo.name() for repo in repos]))))
@@ -169,7 +169,7 @@ def getMainRepoSequence(ans, repos):
 def getRepoSequence(ans, repos):
     seq = []
     for repo in repos:
-        seq.append(Task(repo.installPackages, A(ans, 'mounts', 'kernel-alt'), [],
+        seq.append(Task(repo.installPackages, A(ans, 'mounts'), [],
                      progress_scale=100,
                      pass_progress_callback=True,
                      progress_text="Installing %s..." % repo.name()))
@@ -1665,7 +1665,7 @@ def postInstallAltKernel(mounts, kernel_alt):
         util.runCmd2(['chroot', mounts['root'], 'dracut', '-f', '/boot/initrd-%s.img' % version, version])
 
         # Update grub
-        util.runCmd2(['chroot', mounts['root'], 'python', '/usr/lib/python2.7/site-packages/xcp/updategrub.py', 'add', 'kernel-alt', version])
+        util.runCmd2(['chroot', mounts['root'], '/opt/xensource/bin/updategrub.py', 'add', 'kernel-alt', version])
     finally:
         util.umount("%s/dev" % mounts['root'])
         util.umount("%s/sys" % mounts['root'])
