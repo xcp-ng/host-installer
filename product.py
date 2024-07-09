@@ -558,8 +558,7 @@ def findXenSourceBackups():
         except StopIteration:
             pass
         except Exception as ex:
-            logger.log("findXenSourceBackups caught exception for partition %s" % (p,))
-            logger.logException(ex)
+            logger.info("findXenSourceBackups caught exception for partition %s", p, exc_info=1)
             pass
         if b:
             b.unmount()
