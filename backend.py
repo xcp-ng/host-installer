@@ -884,7 +884,7 @@ def __mkinitrd(mounts, partition, package, kernel_version, fcoe_interfaces):
     except:
         pass
 
-    cmd = ['dracut', output_file, kernel_version]
+    cmd = ['dracut', '-f', output_file, kernel_version]
 
     if util.runCmd2(['chroot', mounts['root']] + cmd) != 0:
         raise RuntimeError("Failed to create initrd for %s.  This is often due to using an installer that is not the same version of %s as your installation source." % (kernel_version, MY_PRODUCT_BRAND))
