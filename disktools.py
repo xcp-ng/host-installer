@@ -1117,6 +1117,7 @@ def probePartitioningScheme(device):
     if out == 'dos':
         partitionType = constants.PARTITION_DOS
 
+    logger.debug("probePartitioningScheme(%r) => %r", device, partitionType)
     return partitionType
 
 def PartitionTool(device, partitionType=None):
