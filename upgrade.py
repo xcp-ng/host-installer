@@ -519,7 +519,7 @@ class ThirdGenUpgrader(Upgrader):
 
     def buildRestoreList(self, src_base):
         self.restore_list += ['etc/xensource/ptoken', 'etc/xensource/pool.conf',
-                              'etc/xensource/xapi-ssl.pem']
+                              'etc/xensource/xapi-ssl.pem', 'etc/xensource/xapi-pool-tls.pem']
         self.restore_list.append({'dir': 'etc/ssh', 're': re.compile(r'.*/ssh_host_.+')})
 
         self.restore_list += [ 'etc/sysconfig/network']
@@ -588,6 +588,10 @@ class ThirdGenUpgrader(Upgrader):
         if os.path.isfile(os.path.join(src_base, snmp_xs_conf)):
             self.restore_list += [snmp_xs_conf, 'etc/snmp/snmpd.xs.conf',
                                   'etc/sysconfig/snmpd', 'var/lib/net-snmp/snmpd.conf']
+
+        # Preserve pool certificates across upgrades
+        self.restore_list += ['etc/stunnel/xapi-pool-ca-bundle.pem', {'dir': 'etc/stunnel/certs-pool'}]
+        self.restore_list += [{'dir': 'etc/stunnel/certs'}]
 
         # Keep IPv6 enablement/disablement upon upgrades
         self.restore_list += ['etc/sysctl.d/91-net-ipv6.conf']
