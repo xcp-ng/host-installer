@@ -26,7 +26,7 @@ def get_iface_configuration(nic, txt=None, defaults=None, include_dns=False):
         # IPv4 by default
         ipv4_rb = SingleRadioButton("IPv4", None, 1)
         ipv6_rb = SingleRadioButton("IPv6", ipv4_rb, 0)
-        dual_rb = SingleRadioButton("Dual stack (IPv4 primary)", ipv6_rb, 0)
+        dual_rb = SingleRadioButton("Dual stack (IPv4 primary) - EXPERIMENTAL", ipv6_rb, 0)
 
         gf.add(text, 0, 0, padding=(0, 0, 0, 1))
         gf.add(ipv4_rb, 0, 2, anchorLeft=True)
