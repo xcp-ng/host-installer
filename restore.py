@@ -40,6 +40,8 @@ def restoreFromBackup(backup, progress=lambda x: ()):
     assert disk_device.startswith('/dev/')
 
     restore_partition = disk.root[1]
+    if not isinstance(restore_partition, str):
+        raise RuntimeError("failed to identify root partition to restore to, disk=%s" % disk)
     logger.log("Restoring to partition %s." % restore_partition)
 
     boot_part = tool.getPartition(boot_partnum)
@@ -138,6 +140,7 @@ def restoreFromBackup(backup, progress=lambda x: ()):
         try:
             util.mkfs(constants.rootfs_type, restore_partition)
         except Exception as e:
+            logger.critical("Failed to create root filesystem", exc_info=1)
             raise RuntimeError("Failed to create root filesystem: %s" % e)
 
         if efi_boot:
