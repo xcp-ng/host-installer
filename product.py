@@ -578,6 +578,13 @@ def findXenSourceBackups():
             backup = XenServerBackup(p, b.mount_point)
             logger.log("Found a backup: %s" % (repr(backup),))
 
+            # Don't restore a BIOS backup with a UEFI installer and conversely
+            backup_is_uefi = is_rootfs_uefi(b.mount_point)
+            if backup_is_uefi != constants.UEFI_INSTALLER:
+                logger.log("findXenSourceBackups: ignoring, installer mode (%s) does not match backup boot mode (%s)" %
+                           ("uefi" if constants.UEFI_INSTALLER else "legacy", "uefi" if backup_is_uefi else "legacy" ))
+                raise StopIteration()
+
             if backup.version < XENSERVER_MIN_VERSION:
                 logger.log("findXenSourceBackups: ignoring, platform too old: %s < %s" %
                            (backup.version, XENSERVER_MIN_VERSION))
