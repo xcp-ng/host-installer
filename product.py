@@ -75,6 +75,15 @@ class ExistingInstallation:
         self.mount_state()
         result = True
         try:
+            # Don't propose to upgrade a BIOS installation with a UEFI installer and conversely
+            existing_is_uefi = is_rootfs_uefi(self.join_state_path())
+            if existing_is_uefi != constants.UEFI_INSTALLER:
+                    logger.log("Cannot upgrade %s, installer mode (%s) does not match existing boot mode (%s)" %
+                                (self.primary_disk,
+                                "uefi" if constants.UEFI_INSTALLER else "legacy",
+                                "uefi" if existing_is_uefi else "legacy"))
+                    return False
+
             # CA-38459: handle missing firstboot directory e.g. Rio
             if os.path.exists(self.join_state_path('etc/firstboot.d/state')):
                 firstboot_files = [ f for f in os.listdir(self.join_state_path('etc/firstboot.d')) \
