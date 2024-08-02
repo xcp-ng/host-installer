@@ -705,6 +705,8 @@ class PartitionToolBase:
             yield number, partition
 
     def commit(self, dryrun=False, log=False):
+        if log:
+            self.dump()
         self.writePartitionTable(dryrun, log)
         if not dryrun:
             # Update the revert point so this tool can be used repeatedly
@@ -719,12 +721,12 @@ class PartitionToolBase:
         for number, partition in sorted(self.origPartitions.items()):
             output += "Old partition "+str(number)+":"
             for k, v in sorted(partition.items()):
-                output += ' '+k+'='+((k == 'id') and hex(v) or str(v))
+                output += ' '+k+'='+((k == 'id' and type(v) == int) and hex(v) or str(v))
             output += "\n"
         for number, partition in sorted(self.partitions.items()):
             output += "New partition "+str(number)+":"
             for k, v in sorted(partition.items()):
-                output += ' '+k+'='+((k == 'id') and hex(v) or str(v))
+                output += ' '+k+'='+((k == 'id' and type(v) == int) and hex(v) or str(v))
             output += "\n"
         logger.log(output)
 
