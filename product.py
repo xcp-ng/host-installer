@@ -28,6 +28,18 @@ THIS_PLATFORM_VERSION = Version.from_string(version.PLATFORM_VERSION)
 XENSERVER_7_0_0 = Version([2, 1, 0]) # Platform version
 XENSERVER_MIN_VERSION = XENSERVER_7_0_0
 
+def is_rootfs_uefi(mount_point):
+    try:
+        with open(os.path.join(mount_point, 'etc', 'fstab'), 'r') as fstab:
+            for line in fstab:
+                m = re.search(r'^\s*[^#]+\s/boot/efi\s', line)
+                if m:
+                    return True
+    except FileNotFoundError:
+        pass
+
+    return False
+
 class ExistingInstallation:
     def __init__(self, primary_disk, boot_device, state_device):
         self.primary_disk = primary_disk
