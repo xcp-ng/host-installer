@@ -28,6 +28,18 @@ THIS_PLATFORM_VERSION = Version.from_string(version.PLATFORM_VERSION)
 XENSERVER_7_0_0 = Version([2, 1, 0]) # Platform version
 XENSERVER_MIN_VERSION = XENSERVER_7_0_0
 
+def is_rootfs_uefi(mount_point):
+    try:
+        with open(os.path.join(mount_point, 'etc', 'fstab'), 'r') as fstab:
+            for line in fstab:
+                m = re.search(r'^\s*[^#]+\s/boot/efi\s', line)
+                if m:
+                    return True
+    except FileNotFoundError:
+        pass
+
+    return False
+
 class ExistingInstallation:
     def __init__(self, primary_disk, boot_device, state_device):
         self.primary_disk = primary_disk
@@ -63,6 +75,15 @@ class ExistingInstallation:
         self.mount_state()
         result = True
         try:
+            # Don't propose to upgrade a BIOS installation with a UEFI installer and conversely
+            existing_is_uefi = is_rootfs_uefi(self.join_state_path())
+            if existing_is_uefi != constants.UEFI_INSTALLER:
+                    logger.log("Cannot upgrade %s, installer mode (%s) does not match existing boot mode (%s)" %
+                                (self.primary_disk,
+                                "uefi" if constants.UEFI_INSTALLER else "legacy",
+                                "uefi" if existing_is_uefi else "legacy"))
+                    return False
+
             # CA-38459: handle missing firstboot directory e.g. Rio
             if os.path.exists(self.join_state_path('etc/firstboot.d/state')):
                 firstboot_files = [ f for f in os.listdir(self.join_state_path('etc/firstboot.d')) \
@@ -565,6 +586,13 @@ def findXenSourceBackups():
 
             backup = XenServerBackup(p, b.mount_point)
             logger.log("Found a backup: %s" % (repr(backup),))
+
+            # Don't restore a BIOS backup with a UEFI installer and conversely
+            backup_is_uefi = is_rootfs_uefi(b.mount_point)
+            if backup_is_uefi != constants.UEFI_INSTALLER:
+                logger.log("findXenSourceBackups: ignoring, installer mode (%s) does not match backup boot mode (%s)" %
+                            ("uefi" if constants.UEFI_INSTALLER else "legacy", "uefi" if backup_is_uefi else "legacy" ))
+                raise StopIteration()
 
             if backup.version < XENSERVER_MIN_VERSION:
                 logger.log("findXenSourceBackups: ignoring, platform too old: %s < %s" %
