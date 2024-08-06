@@ -176,10 +176,14 @@ class Upgrader(object):
                         pat = f.get('re', None)
                         src_dir = os.path.join(tds.mount_point, f['dir'])
                         if os.path.exists(src_dir):
-                            for ff in os.listdir(src_dir):
-                                fn = os.path.join(f['dir'], ff)
-                                if not pat or pat.match(fn):
-                                    restore_file(tds.mount_point, fn)
+                            if pat is not None:
+                                # filter here (though should ideally let restore_file do it)
+                                for ff in os.listdir(src_dir):
+                                    fn = os.path.join(f['dir'], ff)
+                                    if pat.match(fn):
+                                        restore_file(tds.mount_point, fn)
+                            else:
+                                restore_file(tds.mount_point, f['dir'])
         finally:
             tds.unmount()
 
