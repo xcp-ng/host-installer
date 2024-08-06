@@ -173,7 +173,7 @@ class Upgrader(object):
                         assert 'dst' in f
                         restore_file(tds.mount_point, f['src'], f['dst'])
                     elif 'dir' in f:
-                        pat = 're' in f and f['re'] or None
+                        pat = f.get('re', None)
                         src_dir = os.path.join(tds.mount_point, f['dir'])
                         if os.path.exists(src_dir):
                             for ff in os.listdir(src_dir):
