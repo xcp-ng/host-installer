@@ -182,13 +182,17 @@ class Upgrader(object):
                         assert 'dst' in f
                         restore_file(tds.mount_point, f['src'], f['dst'])
                     elif 'dir' in f:
-                        pat = 're' in f and f['re'] or None
+                        pat = f.get('re', None)
                         src_dir = os.path.join(tds.mount_point, f['dir'])
                         if os.path.exists(src_dir):
-                            for ff in os.listdir(src_dir):
-                                fn = os.path.join(f['dir'], ff)
-                                if not pat or pat.match(fn):
-                                    restore_file(tds.mount_point, fn)
+                            if pat is not None:
+                                # filter here (though should ideally let restore_file do it)
+                                for ff in os.listdir(src_dir):
+                                    fn = os.path.join(f['dir'], ff)
+                                    if pat.match(fn):
+                                        restore_file(tds.mount_point, fn)
+                            else:
+                                restore_file(tds.mount_point, f['dir'])
         finally:
             tds.unmount()
 
@@ -591,7 +595,7 @@ class ThirdGenUpgrader(Upgrader):
 
         # Preserve pool certificates across upgrades
         self.restore_list += ['etc/stunnel/xapi-pool-ca-bundle.pem', {'dir': 'etc/stunnel/certs-pool'}]
-        self.restore_list += [{'dir': 'etc/stunnel/certs'}]
+        self.restore_list += ['etc/stunnel/xapi-stunnel-ca-bundle.pem', {'dir': 'etc/stunnel/certs'}]
 
         # Keep IPv6 enablement/disablement upon upgrades
         self.restore_list += ['etc/sysctl.d/91-net-ipv6.conf']
