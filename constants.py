@@ -214,3 +214,6 @@ class MultipathConfig(Enum):
     DISABLED = 0
     ENABLED = 1
     IF_MULTIPLE = 2
+
+# crypto configuration
+RSA_MIN_KEY_SIZE = 2048
