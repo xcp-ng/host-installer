@@ -6,6 +6,8 @@ import os
 import re
 import shutil
 
+from OpenSSL import crypto
+
 import diskutil
 import product
 from xcp.version import *
@@ -217,12 +219,22 @@ class ThirdGenUpgrader(Upgrader):
             input_data = util.readKeyValueFile(default_storage_conf_path)
             self.storage_type = input_data['TYPE']
 
+        self.key_size = None
+        cert_path = os.path.join(primary_fs.mount_point, "etc/xensource/xapi-ssl.pem")
+        with open(cert_path, "r") as cert_file:
+            cert_text = cert_file.read()
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert_text)
+        self.key_size = cert.get_pubkey().bits()
+        logger.info("ExistingInstallation %s: certificate key size %s", source, self.key_size)
+
         primary_fs.unmount()
 
     def testUpgradeForbidden(self, tool):
         utilparts = tool.utilityPartitions()
         if tool.partTableType == constants.PARTITION_DOS and utilparts is not None:
             raise RuntimeError("Util partition detected on DOS partition type, upgrade forbidden.")
+        if self.key_size < constants.MIN_KEY_SIZE:
+            raise RuntimeError("Current server certificate is too small (%s bits), please regenerate with at least %s bits." % (self.key_size, constants.MIN_KEY_SIZE))
 
     convertTargetStateChanges = []
     convertTargetArgs = ['primary-disk', 'target-boot-mode', 'boot-partnum', 'primary-partnum', 'logs-partnum', 'swap-partnum', 'storage-partnum', 'backup-partnum']

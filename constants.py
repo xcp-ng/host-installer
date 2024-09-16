@@ -194,3 +194,6 @@ try:
             SR_TYPE_LARGE_BLOCK = value
 except IOError:
     pass
+
+# crypto configuration
+MIN_KEY_SIZE = 2048
