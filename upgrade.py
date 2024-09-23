@@ -234,7 +234,10 @@ class ThirdGenUpgrader(Upgrader):
         if tool.partTableType == constants.PARTITION_DOS and utilparts is not None:
             raise RuntimeError("Util partition detected on DOS partition type, upgrade forbidden.")
         if self.key_size < constants.MIN_KEY_SIZE:
-            raise RuntimeError("Current server certificate is too small (%s bits), please regenerate with at least %s bits." % (self.key_size, constants.MIN_KEY_SIZE))
+            raise RuntimeError("Current server certificate is too small (%s bits),"
+                               " please regenerate with at least %s bits.\n\n"
+                               "See the Release Notes for XCP-ng 8.3.0" %
+                               (self.key_size, constants.MIN_KEY_SIZE))
 
     convertTargetStateChanges = []
     convertTargetArgs = ['primary-disk', 'target-boot-mode', 'boot-partnum', 'primary-partnum', 'logs-partnum', 'swap-partnum', 'storage-partnum', 'backup-partnum']
