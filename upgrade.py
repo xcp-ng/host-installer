@@ -285,7 +285,9 @@ class ThirdGenUpgrader(Upgrader):
         if self.key_type != crypto.TYPE_RSA:
             raise RuntimeError("Current server certificate is not RSA, please regenerate it before upgrade.")
         if self.key_size < constants.RSA_MIN_KEY_SIZE:
-            raise RuntimeError("Current server certificate is too small (%s bits), please regenerate before upgrade with at least %s bits." % (self.key_size, constants.MIN_KEY_SIZE))
+            raise RuntimeError("Current server certificate is too small (%s bits),"
+                               " please regenerate before upgrade with at least %s bits.\n\n"
+                               "See the Release Notes for XCP-ng 8.3.0." % (self.key_size, constants.MIN_KEY_SIZE))
 
     prepTargetStateChanges = []
     prepTargetArgs = ['primary-disk', 'boot-partnum', 'primary-partnum', 'logs-partnum', 'swap-partnum', 'storage-partnum']
