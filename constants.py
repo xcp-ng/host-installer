@@ -196,3 +196,6 @@ except IOError:
 # Error partitioning disk as in use
 PARTITIONING_ERROR = \
 	'The disk appears to be in use and partition changes cannot be applied. Reboot and repeat the installation'
+
+# crypto configuration
+MIN_KEY_SIZE = 2048
