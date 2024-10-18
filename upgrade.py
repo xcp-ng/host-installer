@@ -523,18 +523,19 @@ class ThirdGenUpgrader(Upgrader):
         finally:
             primary_fs.unmount()
 
-    prepUpgradeArgs = ['installation-uuid', 'control-domain-uuid']
-    prepStateChanges = ['installation-uuid', 'control-domain-uuid']
-    def prepareUpgrade(self, progress_callback, installID, controlID):
+    prepUpgradeArgs = []
+    prepStateChanges = ['installation-uuid', 'control-domain-uuid', 'management-address-type']
+    def prepareUpgrade(self, progress_callback, installID, controlID, mgmtAddrType):
         """ Try to preserve the installation and control-domain UUIDs from
         xensource-inventory."""
         try:
             installID = self.source.getInventoryValue("INSTALLATION_UUID")
             controlID = self.source.getInventoryValue("CONTROL_DOMAIN_UUID")
+            mgmtAddrType = self.source.getInventoryValue("MANAGEMENT_ADDRESS_TYPE")
         except KeyError:
-            raise RuntimeError("Required information (INSTALLATION_UUID, CONTROL_DOMAIN_UUID) was missing from your xensource-inventory file.  Aborting installation; please replace these keys and try again.")
+            raise RuntimeError("Required information (INSTALLATION_UUID, CONTROL_DOMAIN_UUID, MANAGEMENT_ADDRESS_TYPE) was missing from your xensource-inventory file.  Aborting installation; please replace these keys and try again.")
 
-        return installID, controlID
+        return installID, controlID, mgmtAddrType
 
     def buildRestoreList(self, src_base):
         self.restore_list += ['etc/xensource/ptoken', 'etc/xensource/pool.conf',

@@ -359,6 +359,9 @@ def udevinfoCmd():
 def randomLabelStr():
     return "".join([random.choice(string.ascii_lowercase) for x in range(6)])
 
+def mgmtAddrType():
+    return None
+
 def getLocalTime(timezone=None):
     if timezone:
         os.environ['TZ'] = timezone
