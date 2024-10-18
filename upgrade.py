@@ -523,9 +523,9 @@ class ThirdGenUpgrader(Upgrader):
         finally:
             primary_fs.unmount()
 
-    prepUpgradeArgs = ['installation-uuid', 'control-domain-uuid']
+    prepUpgradeArgs = []
     prepStateChanges = ['installation-uuid', 'control-domain-uuid']
-    def prepareUpgrade(self, progress_callback, installID, controlID):
+    def prepareUpgrade(self, progress_callback):
         """ Try to preserve the installation and control-domain UUIDs from
         xensource-inventory."""
         try:
