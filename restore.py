@@ -211,7 +211,7 @@ def restoreFromBackup(backup, progress=lambda x: ()):
             # restore boot loader
             if boot_config.src_fmt == 'grub2':
                 if efi_boot:
-                    branding = util.readKeyValueFile(os.path.join(backup_fs.mount_point, constants.INVENTORY_FILE))
+                    branding = dict(inventory)
                     branding['product-brand'] = branding['PRODUCT_BRAND']
                     backend.setEfiBootEntry(mounts, disk_device, boot_partnum, constants.INSTALL_TYPE_RESTORE, branding)
                 else:
