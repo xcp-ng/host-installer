@@ -408,9 +408,17 @@ def performInstallation(answers, ui_package, interactive):
     if answers['install-type'] == INSTALL_TYPE_REINSTALL and 'net-admin-bridge' not in answers:
         raise RuntimeError("Missing 'net-admin-bridge' in answers")
 
+    # A list needs to be used rather than a set since the order of updates is
+    # important.  However, since the same repository might exist in multiple
+    # locations or the same location might be listed multiple times, care is
+    # needed to ensure that there are no duplicates.
+    main_repositories = []
+    update_repositories = []
+    answers_pristine = answers.copy()
+    determineRepositories(answers, answers_pristine, main_repositories, update_repositories)
+
     # perform installation:
     prep_seq = getPrepSequence(answers, interactive)
-    answers_pristine = answers.copy()
     executeSequence(prep_seq, "Preparing for installation...", answers, ui_package, False)
 
     # install from main repositories:
@@ -423,14 +431,6 @@ def performInstallation(answers, ui_package, interactive):
         executeSequence(repo_seq, "Reading package information...", ans, ui_package, False)
 
     answers['installed-repos'] = {}
-
-    # A list needs to be used rather than a set since the order of updates is
-    # important.  However, since the same repository might exist in multiple
-    # locations or the same location might be listed multiple times, care is
-    # needed to ensure that there are no duplicates.
-    main_repositories = []
-    update_repositories = []
-    determineRepositories(answers, answers_pristine, main_repositories, update_repositories)
 
     handleMainRepos(main_repositories, answers)
     if update_repositories:
