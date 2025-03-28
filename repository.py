@@ -187,7 +187,7 @@ class YumRepository(Repository):
         assert self._targets is not None
         url = self._accessor.url()
         logger.log("URL: " + str(url))
-        yum_conf_path = '/root/yum.conf'
+        yum_conf_path = '/root/yum-%s.conf' % (self._identifier,)
         with open(yum_conf_path, 'w') as yum_conf:
             yum_conf.write(self._yum_conf)
             yum_conf.write("""
@@ -428,7 +428,7 @@ history_record=false
     def isRepo(cls, accessor):
         if UpdateYumRepository.isRepo(accessor):
             url = accessor.url()
-            yum_conf_path = '/root/yum.conf'
+            yum_conf_path = '/root/yum-driverrepo.conf'
             with open(yum_conf_path, 'w') as yum_conf:
                 yum_conf.write(cls._yum_conf)
                 yum_conf.write("""
