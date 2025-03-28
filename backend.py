@@ -309,6 +309,42 @@ def executeSequence(sequence, seq_name, answers, ui, cleanup):
             doCleanup(answers['cleanup'])
             del answers['cleanup']
 
+def determineRepositories(answers, answers_pristine, main_repositories, update_repositories):
+    def add_repos(main_repositories, update_repositories, repos):
+        """Add repositories to the appropriate list, ensuring no duplicates,
+        that the main repository is at the beginning, and that the order of the
+        rest is maintained."""
+
+        for repo in repos:
+            if isinstance(repo, repository.UpdateYumRepository):
+                repo_list = update_repositories
+            else:
+                repo_list = main_repositories
+
+            if repo not in repo_list:
+                if repo.identifier() == MAIN_REPOSITORY_NAME:
+                    repo_list.insert(0, repo)
+                else:
+                    repo_list.append(repo)
+
+    # A list of sources coming from the answerfile
+    if 'sources' in answers_pristine:
+        for i in answers_pristine['sources']:
+            repos = repository.repositoriesFromDefinition(i['media'], i['address'])
+            add_repos(main_repositories, update_repositories, repos)
+
+    # A single source coming from an interactive install
+    if 'source-media' in answers_pristine and 'source-address' in answers_pristine:
+        repos = repository.repositoriesFromDefinition(answers_pristine['source-media'], answers_pristine['source-address'])
+        add_repos(main_repositories, update_repositories, repos)
+
+    for media, address in answers_pristine['extra-repos']:
+        repos = repository.repositoriesFromDefinition(media, address)
+        add_repos(main_repositories, update_repositories, repos)
+
+    if not main_repositories or main_repositories[0].identifier() != MAIN_REPOSITORY_NAME:
+        raise RuntimeError("No main repository found")
+
 def performInstallation(answers, ui_package, interactive):
     logger.log("INPUT ANSWERS DICTIONARY:")
     prettyLogAnswers(answers)
@@ -394,41 +430,7 @@ def performInstallation(answers, ui_package, interactive):
     # needed to ensure that there are no duplicates.
     main_repositories = []
     update_repositories = []
-
-    def add_repos(main_repositories, update_repositories, repos):
-        """Add repositories to the appropriate list, ensuring no duplicates,
-        that the main repository is at the beginning, and that the order of the
-        rest is maintained."""
-
-        for repo in repos:
-            if isinstance(repo, repository.UpdateYumRepository):
-                repo_list = update_repositories
-            else:
-                repo_list = main_repositories
-
-            if repo not in repo_list:
-                if repo.identifier() == MAIN_REPOSITORY_NAME:
-                    repo_list.insert(0, repo)
-                else:
-                    repo_list.append(repo)
-
-    # A list of sources coming from the answerfile
-    if 'sources' in answers_pristine:
-        for i in answers_pristine['sources']:
-            repos = repository.repositoriesFromDefinition(i['media'], i['address'])
-            add_repos(main_repositories, update_repositories, repos)
-
-    # A single source coming from an interactive install
-    if 'source-media' in answers_pristine and 'source-address' in answers_pristine:
-        repos = repository.repositoriesFromDefinition(answers_pristine['source-media'], answers_pristine['source-address'])
-        add_repos(main_repositories, update_repositories, repos)
-
-    for media, address in answers_pristine['extra-repos']:
-        repos = repository.repositoriesFromDefinition(media, address)
-        add_repos(main_repositories, update_repositories, repos)
-
-    if not main_repositories or main_repositories[0].identifier() != MAIN_REPOSITORY_NAME:
-        raise RuntimeError("No main repository found")
+    determineRepositories(answers, answers_pristine, main_repositories, update_repositories)
 
     handleMainRepos(main_repositories, answers)
     if update_repositories:
