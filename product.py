@@ -40,6 +40,14 @@ def is_rootfs_uefi(mount_point):
 
     return False
 
+def getLinstorVersion(rootfs_mount):
+    """ Returns the package version of the LINSTOR packages if any """
+    command = ['rpm', '--root', rootfs_mount, '-q', '--qf', '%{evr}', 'linstor-satellite']
+    rc, out = util.runCmd2(command, with_stdout=True)
+    if rc != 0:
+        return None
+    return out
+
 class ExistingInstallation:
     def __init__(self, primary_disk, boot_device, state_device):
         self.primary_disk = primary_disk
@@ -376,6 +384,9 @@ class ExistingInstallation:
                 pc.close()
             except:
                 pass
+
+            results['linstor-version'] = getLinstorVersion(self.state_fs.mount_point) or None
+            logger.info("LINSTOR version detected: %s" % (results['linstor-version'],))
 
         finally:
             self.unmount_state()
