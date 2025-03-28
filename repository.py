@@ -922,3 +922,30 @@ def installFromRepos(progress_callback, repos, mounts, kernel_alt, linstor_versi
     finally:
         for repo in repos:
             repo._accessor.finish()
+
+# unlike modern dnf, silly yum in el7 does not hide "0:" in "%{evr}"
+NULL_EPOCH_RE = re.compile(r"(.*)\b0:(.*)$")
+def hideNullEpoch(package):
+    m = re.match(NULL_EPOCH_RE, package)
+    if not m:
+        return package
+    return "".join(m.groups())
+
+def listPackagesFromRepos(repos, rpm_pattern, query_format='%{nevr}'):
+    cachedir = "var/cache/yum/installer"
+    yum_conf_path = '/root/yum-repoquery.conf'
+
+    for repo in repos:
+        repo._accessor.start()
+
+    try:
+        createMainYumConfig(yum_conf_path, repos, cachedir)
+
+        rv, out = util.runCmd2(['repoquery', '-c', yum_conf_path,
+                                '--qf', query_format,
+                                rpm_pattern], with_stdout=True)
+    finally:
+        for repo in repos:
+            repo._accessor.finish()
+
+    return [hideNullEpoch(package) for package in out.split()]

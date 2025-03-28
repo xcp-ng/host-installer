@@ -425,6 +425,21 @@ def performInstallation(answers, ui_package, interactive):
     answers_pristine = answers.copy()
     determineRepositories(answers, answers_pristine, main_repositories, update_repositories)
 
+    # if upgrading a host with LINSTOR, check we can upgrade it first
+    if answers['install-type'] == INSTALL_TYPE_REINSTALL and answers['linstor-version']:
+        available_linstor_versions = repository.listPackagesFromRepos(
+            main_repositories, 'linstor-satellite', '%{evr}')
+        if not available_linstor_versions:
+            raise RuntimeError("Cannot upgrade host with LINSTOR using an installation source "
+                               "that does not have LINSTOR.  Please use an installation medium "
+                               "which supports upgrading LINSTOR.")
+        if answers['linstor-version'] not in available_linstor_versions:
+            raise RuntimeError("Cannot upgrade host with LINSTOR %s, "
+                               "upgrade repository has versions: %s.  "
+                               "Please make sure your pool is uptodate and use the "
+                               "latest dedicated ISO." %
+                               (answers['linstor-version'], ', '.join(available_linstor_versions)))
+
     # perform installation:
     prep_seq = getPrepSequence(answers, interactive)
     executeSequence(prep_seq, "Preparing for installation...", answers, ui_package, False)
