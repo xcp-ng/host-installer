@@ -608,7 +608,7 @@ class ThirdGenUpgrader(Upgrader):
             primary_fs.unmount()
 
     prepUpgradeArgs = []
-    prepStateChanges = ['installation-uuid', 'control-domain-uuid', 'management-address-type']
+    prepStateChanges = ['installation-uuid', 'control-domain-uuid', 'management-address-type', 'linstor-version']
     def prepareUpgrade(self, progress_callback):
         """ Try to preserve the installation and control-domain UUIDs from
         xensource-inventory."""
@@ -619,7 +619,7 @@ class ThirdGenUpgrader(Upgrader):
         except KeyError:
             raise RuntimeError("Required information (INSTALLATION_UUID, CONTROL_DOMAIN_UUID, MANAGEMENT_ADDRESS_TYPE) was missing from your xensource-inventory file.  Aborting installation; please replace these keys and try again.")
 
-        return installID, controlID, mgmtAddrType
+        return installID, controlID, mgmtAddrType, self.source.settings['linstor-version']
 
     def buildRestoreList(self, src_base):
         restore_list = []
