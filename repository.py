@@ -870,6 +870,26 @@ def installFromYum(yum_conf_path, targets, mounts, progress_callback, cachedir):
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir))
 
+def createMainYumConfig(yum_conf_path, repos, cachedir):
+    with open(yum_conf_path, 'w') as yum_conf:
+        yum_conf.write(_generateYumConf(cachedir))
+        for repo in repos:
+            url = repo._accessor.url()
+            yum_conf.write("""
+[%s]
+name=%s
+baseurl=%s
+""" % (repo.identifier(), repo.identifier(), url.getPlainURL()))
+            username = url.getUsername()
+            if username is not None:
+                yum_conf.write("username=%s\n" % (url.getUsername(),))
+            password = url.getPassword()
+            if password is not None:
+                yum_conf.write("password=%s\n" % (url.getPassword(),))
+            repo_config = repo._repo_config()
+            if repo_config is not None:
+                yum_conf.write(repo_config)
+
 def installFromRepos(progress_callback, repos, mounts, kernel_alt, linstor_version):
     """Install from a stacked set of repositories"""
 
@@ -881,26 +901,7 @@ def installFromRepos(progress_callback, repos, mounts, kernel_alt, linstor_versi
         repo._accessor.start()
 
     try:
-        # Build a yum config
-        with open(yum_conf_path, 'w') as yum_conf:
-            yum_conf.write(_generateYumConf(cachedir))
-            for repo in repos:
-                url = repo._accessor.url()
-                yum_conf.write("""
-[%s]
-name=%s
-baseurl=%s
-""" % (repo.identifier(), repo.identifier(), url.getPlainURL()))
-                username = url.getUsername()
-                if username is not None:
-                    yum_conf.write("username=%s\n" % (url.getUsername(),))
-                password = url.getPassword()
-                if password is not None:
-                    yum_conf.write("password=%s\n" % (url.getPassword(),))
-                repo_config = repo._repo_config()
-                if repo_config is not None:
-                    yum_conf.write(repo_config)
-
+        createMainYumConfig(yum_conf_path, repos, cachedir)
 
         repos[0].disableInitrdCreation(mounts['root'])
         targets = []
