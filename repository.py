@@ -868,7 +868,7 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir))
 
-def installFromRepos(progress_callback, repos, mounts, kernel_alt):
+def installFromRepos(progress_callback, repos, mounts, kernel_alt, linstor_version):
     """Install from a stacked set of repositories"""
 
     logger.log("installFromRepos, kernel_alt=%s" % (kernel_alt,))
@@ -906,6 +906,11 @@ baseurl=%s
         targets = list(set(targets))
         if kernel_alt:
             targets.append('kernel-alt')
+        if linstor_version:
+            targets.extend(['xcp-ng-release-linstor', 'xcp-ng-linstor',
+                            'linstor-satellite-%s' % linstor_version,
+                            'linstor-controller-%s' % linstor_version,
+                            ])
 
         installFromYum(targets, mounts, progress_callback, cachedir)
         repos[0].enableInitrdCreation()
