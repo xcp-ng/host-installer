@@ -831,7 +831,7 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir))
 
-def installFromRepos(progress_callback, repos, mounts):
+def installFromRepos(progress_callback, repos, mounts, linstor_version):
     """Install from a stacked set of repositories"""
 
     cachedir = "var/cache/yum/installer"
@@ -866,6 +866,11 @@ baseurl=%s
             if repo._targets:
                 targets += repo._targets
         targets = list(set(targets))
+        if linstor_version:
+            targets.extend(['xcp-ng-release-linstor', 'xcp-ng-linstor',
+                            'linstor-satellite-%s' % linstor_version,
+                            'linstor-controller-%s' % linstor_version,
+                            ])
 
         installFromYum(targets, mounts, progress_callback, cachedir)
         repos[0].enableInitrdCreation()

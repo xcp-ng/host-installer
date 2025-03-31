@@ -158,7 +158,7 @@ def getPrepSequence(ans, interactive):
 
 def getMainRepoSequence(ans, repos):
     seq = []
-    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts')], [],
+    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts'), a.get('linstor-version')], [],
                 progress_scale=100,
                 pass_progress_callback=True,
                 progress_text="Installing %s..." % (", ".join([repo.name() for repo in repos]))))
