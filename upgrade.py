@@ -699,6 +699,13 @@ class ThirdGenUpgrader(Upgrader):
         restore_list += ['etc/stunnel/xapi-pool-ca-bundle.pem', {'dir': 'etc/stunnel/certs-pool'}]
         restore_list += ['etc/stunnel/xapi-stunnel-ca-bundle.pem', {'dir': 'etc/stunnel/certs'}]
 
+        # LINSTOR
+        restore_list += ['etc/drbd-reactor.d/sm-linstor.toml',
+                         'etc/systemd/system/multi-user.target.wants/drbd-reactor.service',
+                         'etc/systemd/system/multi-user.target.wants/linstor-satellite.service',
+                         'etc/systemd/system/multi-user.target.wants/linstor-monitor.service',
+                         ]
+
         # XAPI firewall-port plugin
         restore_list += ['etc/sysconfig/iptables']
 
