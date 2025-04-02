@@ -683,6 +683,9 @@ class ThirdGenUpgrader(Upgrader):
         restore_list += ['etc/stunnel/xapi-pool-ca-bundle.pem', {'dir': 'etc/stunnel/certs-pool'}]
         restore_list += ['etc/stunnel/xapi-stunnel-ca-bundle.pem', {'dir': 'etc/stunnel/certs'}]
 
+        # XAPI firewall-port plugin
+        restore_list += ['etc/sysconfig/iptables']
+
         return restore_list
 
     completeUpgradeArgs = ['mounts', 'installation-to-overwrite', 'primary-disk', 'backup-partnum', 'logs-partnum', 'net-admin-interface', 'net-admin-bridge', 'net-admin-configuration']
