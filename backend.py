@@ -368,6 +368,8 @@ def performInstallation(answers, ui_package, interactive):
 
     # perform installation:
     prep_seq = getPrepSequence(answers, interactive)
+    if 'target-platform' not in answers:
+        answers['target-platform'] = '' # needed by prep_seq
     answers_pristine = answers.copy()
     executeSequence(prep_seq, "Preparing for installation...", answers, ui_package, False)
 
