@@ -183,7 +183,7 @@ class Upgrader(object):
             if not d: d = f
             src = os.path.join(src_base, f)
             dst = os.path.join(mounts['root'], d)
-            if os.path.exists(src):
+            if os.path.lexists(src):
                 logger.log("Restoring /%s" % f)
                 util.assertDir(os.path.dirname(dst))
                 # copy file/folder and try to preserve all attributes
