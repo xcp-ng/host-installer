@@ -35,6 +35,7 @@ from xcp.version import Version
 import version
 from version import *
 from constants import *
+from diskutil import getRemovableDeviceList
 
 MY_PRODUCT_BRAND = PRODUCT_BRAND or PLATFORM_NAME
 
@@ -106,6 +107,7 @@ def getPrepSequence(ans, interactive):
         Task(util.getUUID, As(ans), ['installation-uuid']),
         Task(util.getUUID, As(ans), ['control-domain-uuid']),
         Task(util.randomLabelStr, As(ans), ['disk-label-suffix']),
+        Task(diskutil.create_raid, A(ans, 'raid'), []),
         Task(partitionTargetDisk, A(ans, 'primary-disk', 'installation-to-overwrite', 'preserve-first-partition','sr-on-primary', 'target-platform'),
             ['target-boot-mode', 'primary-partnum', 'backup-partnum', 'storage-partnum', 'boot-partnum', 'logs-partnum', 'swap-partnum']),
         ]
@@ -158,7 +160,7 @@ def getPrepSequence(ans, interactive):
 
 def getMainRepoSequence(ans, repos):
     seq = []
-    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts')], [],
+    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts'), a.get('kernel-alt')], [],
                 progress_scale=100,
                 pass_progress_callback=True,
                 progress_text="Installing %s..." % (", ".join([repo.name() for repo in repos]))))
@@ -180,6 +182,7 @@ def getRepoSequence(ans, repos):
 
 def getFinalisationSequence(ans):
     seq = [
+        Task(importYumAndRpmGpgKeys, A(ans, 'mounts'), []),
         Task(writeResolvConf, A(ans, 'mounts', 'manual-hostname', 'manual-nameservers'), []),
         Task(writeMachineID, A(ans, 'mounts'), []),
         Task(writeKeyboardConfiguration, A(ans, 'mounts', 'keymap'), []),
@@ -201,6 +204,7 @@ def getFinalisationSequence(ans):
                                   'boot-partnum', 'primary-partnum', 'target-boot-mode', 'branding',
                                   'disk-label-suffix', 'bootloader-location', 'write-boot-entry', 'install-type',
                                   'serial-console', 'boot-serial', 'host-config', 'fcoe-interfaces'), []),
+        Task(postInstallAltKernel, A(ans, 'mounts', 'kernel-alt'), []),
         Task(touchSshAuthorizedKeys, A(ans, 'mounts'), []),
         Task(setRootPassword, A(ans, 'mounts', 'root-password'), [], args_sensitive=True),
         Task(setTimeZone, A(ans, 'mounts', 'timezone'), []),
@@ -364,6 +368,8 @@ def performInstallation(answers, ui_package, interactive):
 
     # perform installation:
     prep_seq = getPrepSequence(answers, interactive)
+    if 'target-platform' not in answers:
+        answers['target-platform'] = '' # needed by prep_seq
     answers_pristine = answers.copy()
     executeSequence(prep_seq, "Preparing for installation...", answers, ui_package, False)
 
@@ -385,7 +391,7 @@ def performInstallation(answers, ui_package, interactive):
     main_repositories = []
     update_repositories = []
 
-    def add_repos(main_repositories, update_repositories, repos):
+    def add_repos(main_repositories, update_repositories, repos, repo_gpgcheck, gpgcheck):
         """Add repositories to the appropriate list, ensuring no duplicates,
         that the main repository is at the beginning, and that the order of the
         rest is maintained."""
@@ -402,20 +408,28 @@ def performInstallation(answers, ui_package, interactive):
                 else:
                     repo_list.append(repo)
 
+                if repo_list is main_repositories: # i.e., if repo is a "main repository"
+                    repo.setRepoGpgCheck(repo_gpgcheck)
+                    repo.setGpgCheck(gpgcheck)
+
+    default_repo_gpgcheck = answers.get('repo-gpgcheck', True)
+    default_gpgcheck = answers.get('gpgcheck', True)
     # A list of sources coming from the answerfile
     if 'sources' in answers_pristine:
         for i in answers_pristine['sources']:
             repos = repository.repositoriesFromDefinition(i['media'], i['address'])
-            add_repos(main_repositories, update_repositories, repos)
+            repo_gpgcheck = default_repo_gpgcheck if i['repo_gpgcheck'] is None else i['repo_gpgcheck']
+            gpgcheck = default_gpgcheck if i['gpgcheck'] is None else i['gpgcheck']
+            add_repos(main_repositories, update_repositories, repos, repo_gpgcheck, gpgcheck)
 
     # A single source coming from an interactive install
     if 'source-media' in answers_pristine and 'source-address' in answers_pristine:
         repos = repository.repositoriesFromDefinition(answers_pristine['source-media'], answers_pristine['source-address'])
-        add_repos(main_repositories, update_repositories, repos)
+        add_repos(main_repositories, update_repositories, repos, default_repo_gpgcheck, default_gpgcheck)
 
     for media, address in answers_pristine['extra-repos']:
         repos = repository.repositoriesFromDefinition(media, address)
-        add_repos(main_repositories, update_repositories, repos)
+        add_repos(main_repositories, update_repositories, repos, default_repo_gpgcheck, default_gpgcheck)
 
     if not main_repositories or main_repositories[0].identifier() != MAIN_REPOSITORY_NAME:
         raise RuntimeError("No main repository found")
@@ -430,7 +444,18 @@ def performInstallation(answers, ui_package, interactive):
         if r.accessor().canEject():
             r.accessor().eject()
 
-    if interactive and constants.HAS_SUPPLEMENTAL_PACKS:
+    # XCP-ng: so, very unfortunately we don't remember with precision why this was added and
+    # no commit message or comment can help us here.
+    # It may be related to the fact that the "all_repositories" above doesn't contain
+    # the installation CD-ROM or USB stick in the case of a netinstall.
+    # Question: why it is needed at all since there's no repository on the netinstall
+    # installation media?
+    if answers.get('netinstall'):
+        for device in getRemovableDeviceList():
+            util.runCmd2(['eject', device])
+
+    if interactive and (constants.HAS_SUPPLEMENTAL_PACKS or
+                        "driver-repos" in answers):
         # Add supp packs in a loop
         while True:
             media_ans = dict(answers_pristine)
@@ -1125,7 +1150,11 @@ def installBootLoader(mounts, disk, boot_partnum, primary_partnum, target_boot_m
             setEfiBootEntry(mounts, disk, boot_partnum, install_type, branding)
     else:
         if location == constants.BOOT_LOCATION_MBR:
-            installGrub2(mounts, disk, False)
+            if diskutil.is_raid(disk):
+                for member in diskutil.getDeviceSlaves(disk):
+                    installGrub2(mounts, member, False)
+            else:
+                installGrub2(mounts, disk, False)
         else:
             installGrub2(mounts, root_partition, True)
 
@@ -1500,15 +1529,15 @@ def configureNetworking(mounts, admin_iface, admin_bridge, admin_config, hn_conf
             print("NETMASK='%s'" % admin_config.netmask, file=mc)
             if admin_config.gateway:
                 print("GATEWAY='%s'" % admin_config.gateway, file=mc)
-            if manual_nameservers:
-                print("DNS='%s'" % (','.join(nameservers),), file=mc)
-            if domain:
-                print("DOMAIN='%s'" % domain, file=mc)
         print("MODEV6='%s'" % netinterface.NetInterface.getModeStr(admin_config.modev6), file=mc)
         if admin_config.modev6 == netinterface.NetInterface.Static:
             print("IPv6='%s'" % admin_config.ipv6addr, file=mc)
             if admin_config.ipv6_gateway:
                 print("IPv6_GATEWAY='%s'" % admin_config.ipv6_gateway, file=mc)
+        if manual_nameservers:
+            print("DNS='%s'" % (','.join(nameservers),), file=mc)
+        if domain:
+            print("DOMAIN='%s'" % domain, file=mc)
         if admin_config.vlan:
             print("VLAN='%d'" % admin_config.vlan, file=mc)
         mc.close()
@@ -1551,12 +1580,18 @@ def configureNetworking(mounts, admin_iface, admin_bridge, admin_config, hn_conf
     # now we need to write /etc/sysconfig/network
     nfd = open("%s/etc/sysconfig/network" % mounts["root"], "w")
     nfd.write("NETWORKING=yes\n")
-    if admin_config.modev6:
+    ipv6 = admin_config.modev6 is not None
+    if ipv6:
         nfd.write("NETWORKING_IPV6=yes\n")
         util.runCmd2(['chroot', mounts['root'], 'systemctl', 'enable', 'ip6tables'])
     else:
         nfd.write("NETWORKING_IPV6=no\n")
         netutil.disable_ipv6_module(mounts["root"])
+
+    with open("%s/etc/sysctl.d/91-net-ipv6.conf" % mounts["root"], "w") as ipv6_conf:
+        for i in ['all', 'default']:
+            ipv6_conf.write('net.ipv6.conf.%s.disable_ipv6=%d\n' % (i, int(not ipv6)))
+
     nfd.write("IPV6_AUTOCONF=no\n")
     nfd.write('NTPSERVERARGS="iburst prefer"\n')
     nfd.close()
@@ -1649,6 +1684,57 @@ def touchSshAuthorizedKeys(mounts):
     fh = open("%s/root/.ssh/authorized_keys" % mounts['root'], 'a')
     fh.close()
 
+def importYumAndRpmGpgKeys(mounts):
+    # Python script that uses yum functions to import the GPG key for our repositories
+    import_yum_keys = """#!/bin/env python
+from __future__ import print_function
+from yum import YumBase
+
+def retTrue(*args, **kwargs):
+    return True
+
+base = YumBase()
+for repo in base.repos.repos.itervalues():
+    if repo.id.startswith('xcp-ng'):
+        print("*** Importing GPG key for repository %s - %s" % (repo.id, repo.name))
+        base.getKeyForRepo(repo, callback=retTrue)
+"""
+    internal_tmp_filepath = '/tmp/import_yum_keys.py'
+    external_tmp_filepath = mounts['root'] + internal_tmp_filepath
+    with open(external_tmp_filepath, 'w') as f:
+        f.write(import_yum_keys)
+    # bind mount /dev, necessary for NSS initialization without which RPM won't work
+    util.bindMount('/dev', "%s/dev" % mounts['root'])
+    try:
+        util.runCmd2(['chroot', mounts['root'], 'python', internal_tmp_filepath])
+        util.runCmd2(['chroot', mounts['root'], 'rpm', '--import', '/etc/pki/rpm-gpg/RPM-GPG-KEY-xcpng'])
+    finally:
+        util.umount("%s/dev" % mounts['root'])
+        os.unlink(external_tmp_filepath)
+
+def postInstallAltKernel(mounts, kernel_alt):
+    """ Install our alternate kernel. Must be called after the bootloader installation. """
+    if not kernel_alt:
+        logger.log('kernel-alt not installed')
+        return
+
+    util.bindMount("/proc", "%s/proc" % mounts['root'])
+    util.bindMount("/sys", "%s/sys" % mounts['root'])
+    util.bindMount("/dev", "%s/dev" % mounts['root'])
+
+    try:
+        rc, out = util.runCmd2(['chroot', mounts['root'], 'rpm', '-q', 'kernel-alt', '--qf', '%{version}'],
+                               with_stdout=True)
+        version = out
+        # Generate the initrd as it was disabled during initial installation
+        util.runCmd2(['chroot', mounts['root'], 'dracut', '-f', '/boot/initrd-%s.img' % version, version])
+
+        # Update grub
+        util.runCmd2(['chroot', mounts['root'], '/opt/xensource/bin/updategrub.py', 'add', 'kernel-alt', version])
+    finally:
+        util.umount("%s/dev" % mounts['root'])
+        util.umount("%s/sys" % mounts['root'])
+        util.umount("%s/proc" % mounts['root'])
 
 ################################################################################
 # OTHER HELPERS
