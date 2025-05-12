@@ -34,7 +34,7 @@ def configureNetworking(ui, device, config):
             "Attempting to configure networking..."
             )
 
-    if device == 'all':
+    if device == 'all' and config != 'none':
         config = 'dhcp'
     mode, rest = config.split(":", 1) if config and ":" in config else (config, None)
     config_dict = {'gateway': None, 'dns': None, 'domain': None, 'vlan': None}
@@ -60,7 +60,11 @@ def configureNetworking(ui, device, config):
                                      config_dict['gateway'], config_dict['dns'],
                                      config_dict['domain'], config_dict['vlan'])
         else:
-            netcfg[i] = NetInterface(NetInterface.DHCP, nethw[i].hwaddr,
+            if mode == 'none':
+                netmode = None
+            else: # both 'dhcp' and possibly defaulting for 'static' in funky cases
+                netmode = NetInterface.DHCP
+            netcfg[i] = NetInterface(netmode, nethw[i].hwaddr,
                                      vlan=config_dict['vlan'])
 
     netutil.writeNetInterfaceFiles(netcfg)
