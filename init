@@ -109,7 +109,7 @@ def main(args):
     ui = tui
     interactive = True
     answer_device = 'all'
-    answer_config = 'dhcp'
+    network_config = 'dhcp'
     init_network = False
     reboot = False
     answerfile_address = None
@@ -149,7 +149,7 @@ def main(args):
             answer_device = val.lower()
             init_network = True
         elif opt == '--network_config':
-            answer_config = val.lower()
+            network_config = val.lower()
         elif opt == "--reboot":
             reboot = True
         elif opt == "--device_mapper_multipath":
@@ -226,7 +226,7 @@ def main(args):
     if ui:
         netutil.setAllLinksUp()
     if init_network:
-        configureNetworking(ui, answer_device, answer_config)
+        configureNetworking(ui, answer_device, network_config)
 
     logger.log("Starting installation/upgrade/restore")
 
