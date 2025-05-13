@@ -27,7 +27,7 @@ from xcp import logger
 from version import *
 
 # Attempt to configure the network:
-def configureNetworking(ui, device, config):
+def configureNetworking(ui, device, config, config6):
     if ui:
         ui.progress.showMessageDialog(
             "Preparing for installation",
@@ -36,6 +36,7 @@ def configureNetworking(ui, device, config):
 
     if device == 'all' and config != 'none':
         config = 'dhcp'
+
     mode, rest = config.split(":", 1) if config and ":" in config else (config, None)
     config_dict = {'gateway': None, 'dns': None, 'domain': None, 'vlan': None}
     if rest:
@@ -50,6 +51,17 @@ def configureNetworking(ui, device, config):
         if not netutil.valid_vlan(config_dict['vlan']):
             raise RuntimeError("Invalid VLAN value for installer network")
         config_dict['vlan'] = int(config_dict['vlan'])
+
+    mode6, rest = config6.split(":", 1) if config6 and ":" in config6 else (config6, None)
+    config6_dict = {'vlan': None}
+    if rest:
+        for el in rest.split(';'):
+            k, v = el.split('=', 1)
+            config6_dict[k] = v
+    if config6_dict['vlan']:
+        if not netutil.valid_vlan(config6_dict['vlan']):
+            raise RuntimeError("Invalid VLAN value for installer network")
+        config6_dict['vlan'] = int(config6_dict['vlan'])
 
     nethw = netutil.scanConfiguration()
     netcfg = {}
@@ -66,6 +78,14 @@ def configureNetworking(ui, device, config):
                 netmode = NetInterface.DHCP
             netcfg[i] = NetInterface(netmode, nethw[i].hwaddr,
                                      vlan=config_dict['vlan'])
+
+        if mode6 == 'none':
+            netmode6 = None
+        elif mode6 == 'autoconf':
+            netmode6 = NetInterface.Autoconf
+        else:
+            netmode6 = NetInterface.DHCP
+        netcfg[i].addIPv6(netmode6)
 
     netutil.writeNetInterfaceFiles(netcfg)
     netutil.writeResolverFile(netcfg, '/etc/resolv.conf')
@@ -114,6 +134,7 @@ def main(args):
     interactive = True
     answer_device = 'all'
     network_config = 'dhcp'
+    network_config6 = 'none'
     init_network = False
     reboot = False
     answerfile_address = None
@@ -154,6 +175,8 @@ def main(args):
             init_network = True
         elif opt == '--network_config':
             network_config = val.lower()
+        elif opt == '--network_config6':
+            network_config6 = val.lower()
         elif opt == "--reboot":
             reboot = True
         elif opt == "--device_mapper_multipath":
@@ -230,7 +253,7 @@ def main(args):
     if ui:
         netutil.setAllLinksUp()
     if init_network:
-        configureNetworking(ui, answer_device, network_config)
+        configureNetworking(ui, answer_device, network_config, network_config6)
 
     logger.log("Starting installation/upgrade/restore")
 
