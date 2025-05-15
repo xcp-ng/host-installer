@@ -238,12 +238,14 @@ class MainYumRepository(YumRepositoryWithInfo):
     """Represents a Yum repository containing the main XenServer installation."""
 
     INFO_FILENAME = ".treeinfo"
-    _targets = ['@xenserver_base', '@xenserver_dom0']
+    _targets = ['xcp-ng-deps']
 
     def __init__(self, accessor):
         super(MainYumRepository, self).__init__(accessor)
         self._identifier = MAIN_REPOSITORY_NAME
         self.keyfiles = []
+        self._repo_gpg_check = True
+        self._gpg_check = True
 
         def get_name_version(config_parser, section, name_key, vesion_key):
             name, version = None, None
@@ -314,10 +316,10 @@ class MainYumRepository(YumRepositoryWithInfo):
                 outfh = open(key_path, "w")
                 outfh.write(infh.read())
                 return """
-gpgcheck=1
-repo_gpgcheck=1
+gpgcheck=%s
+repo_gpgcheck=%s
 gpgkey=file://%s
-""" % (key_path)
+""" % (int(self._gpg_check), int(self._repo_gpg_check), key_path)
             finally:
                 if infh:
                     infh.close()
@@ -353,6 +355,13 @@ gpgkey=file://%s
             branding['product-build'] = self._build_number
         return branding
 
+    def setRepoGpgCheck(self, value):
+        logger.log("%s: setRepoGpgCheck(%s)" % (self, value))
+        self._repo_gpg_check = value
+
+    def setGpgCheck(self, value):
+        logger.log("%s: setGpgCheck(%s)" % (self, value))
+        self._gpg_check = value
 
 class UpdateYumRepository(YumRepositoryWithInfo):
     """Represents a Yum repository containing packages and associated meta data for an update."""
@@ -822,18 +831,47 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
         rv = p.wait()
         stderr.seek(0)
         stderr = stderr.read()
+        gpg_error_message = None
         if stderr:
             logger.log("YUM stderr: %s" % stderr.strip())
 
+            if stderr.find(' in import_key_to_pubring') >= 0:
+                gpg_error_message = "Signature key import failed"
+            # add any other instance of uncaught GpgmeError before this like
+            elif stderr.find('gpgme.GpgmeError: ') >= 0:
+                gpg_error_message = "Cryptography-related yum crash"
+
+            elif re.search("Couldn't open file [^ ]*/repodata/repomd.xml.asc", stderr):
+                # would otherwise be mistaken for "pubring import" !?
+                gpg_error_message = "No signature on repository metadata"
+            elif stderr.find('repomd.xml signature could not be verified') >= 0:
+                gpg_error_message = "Repository signature verification failure"
+
+            else:
+                match = re.search("Public key for ([^ ]*.rpm) is not installed", stderr)
+                if match:
+                    gpg_error_message = "Missing key for %s" % (match.group(1),)
+                match = re.search("Package ([^ ]*.rpm) is not signed", stderr)
+                if match:
+                    gpg_error_message = "Package not signed: %s" % (match.group(1),)
+                match = re.search(r" ([^ ]*): \[Errno [0-9]*\] No more mirrors to try", stderr)
+                if match:
+                    # rpm not found or corrupted/re-signed/etc
+                    gpg_error_rpm_not_found = match.group(1)
+                    gpg_error_message = "Cannot find valid rpm for %s" % (match.group(1),)
+
         if rv:
             logger.log("Yum exited with %d" % rv)
-            raise ErrorInstallingPackage("Error installing packages")
+            if gpg_error_message is None:
+                gpg_error_message = "Error installing packages"
+            raise ErrorInstallingPackage(gpg_error_message)
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir))
 
-def installFromRepos(progress_callback, repos, mounts):
+def installFromRepos(progress_callback, repos, mounts, kernel_alt):
     """Install from a stacked set of repositories"""
 
+    logger.log("installFromRepos, kernel_alt=%s" % (kernel_alt,))
     cachedir = "var/cache/yum/installer"
     for repo in repos:
         repo._accessor.start()
@@ -866,6 +904,8 @@ baseurl=%s
             if repo._targets:
                 targets += repo._targets
         targets = list(set(targets))
+        if kernel_alt:
+            targets.append('kernel-alt')
 
         installFromYum(targets, mounts, progress_callback, cachedir)
         repos[0].enableInitrdCreation()

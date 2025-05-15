@@ -90,6 +90,8 @@ class Answerfile:
             else:
                 raise AnswerfileException("Unknown mode, %s" % install_type)
 
+            results['repo-gpgcheck'] = getBoolAttribute(self.top_node, ['repo-gpgcheck'], default=True)
+            results['gpgcheck'] = getBoolAttribute(self.top_node, ['gpgcheck'], default=True)
             results.update(self.parseCommon())
         elif self.operation == 'restore':
             results = self.parseRestore()
@@ -131,6 +133,7 @@ class Answerfile:
         results['preserve-settings'] = False
         results['backup-existing-installation'] = False
 
+        results.update(self.parseRaid())
         results.update(self.parseDisks())
         results.update(self.parseInterface())
         results.update(self.parseRootPassword())
@@ -269,7 +272,21 @@ class Answerfile:
             if rtype == 'url':
                 address = util.URL(address)
 
-            results['sources'].append({'media': rtype, 'address': address})
+            # workaround getBoolAttribute() not allowing "None" as
+            # default, by using a getStrAttribute() call first to
+            # handle the default situation where the attribute is not
+            # specified
+            repo_gpgcheck = (None if getStrAttribute(i, ['repo-gpgcheck'], default=None) is None
+                             else getBoolAttribute(i, ['repo-gpgcheck']))
+            gpgcheck = (None if getStrAttribute(i, ['gpgcheck'], default=None) is None
+                        else getBoolAttribute(i, ['gpgcheck']))
+
+            results['sources'].append({
+                'media': rtype, 'address': address,
+                'repo_gpgcheck': repo_gpgcheck,
+                'gpgcheck': gpgcheck,
+            })
+            logger.log("parsed source %s" % results['sources'][-1])
 
         return results
 
@@ -294,6 +311,16 @@ class Answerfile:
                 address = util.URL(address)
 
             results['extra-repos'].append((rtype, address))
+        return results
+
+    def parseRaid(self):
+        results = {}
+        for raid_node in getElementsByTagName(self.top_node, ['raid']):
+            disk_device = normalize_disk(getStrAttribute(raid_node, ['device'], mandatory=True))
+            disks = [normalize_disk(getText(node)) for node in getElementsByTagName(raid_node, ['disk'])]
+            if 'raid' not in results:
+                results['raid'] = {}
+            results['raid'][disk_device] = disks
         return results
 
     def parseDisks(self):
@@ -339,7 +366,7 @@ class Answerfile:
         if SR_TYPE_LARGE_BLOCK and len(large_block_disks) > 0:
             default_sr_type = SR_TYPE_LARGE_BLOCK
         else:
-            default_sr_type = SR_TYPE_LVM
+            default_sr_type = SR_TYPE_EXT
 
         sr_type = getMapAttribute(self.top_node,
                                   ['sr-type', 'srtype'],
