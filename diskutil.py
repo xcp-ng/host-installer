@@ -156,6 +156,21 @@ def getDiskList():
 
     return disks
 
+def create_raid(configuration):
+    if configuration:
+        for raid_device, members in configuration.viewitems():
+            # allows for idempotence
+            if not os.path.exists(raid_device):
+                for dev in members:
+                    util.runCmd2(['sgdisk', '--zap-all', dev])
+                    util.runCmd2(['mdadm', '--zero-superblock', '--force', dev])
+                    # let it fail without catching
+                cmd = ['mdadm', '--create', raid_device, '--run', '--metadata=1.0', '--level=mirror',
+                       '--raid-devices=%s' % (len(members))] + members
+                rc, out, err = util.runCmd2(cmd, with_stdout=True, with_stderr=True)
+                if rc != 0:
+                    raise Exception('Error running: %s\n%s\n\n%s' % (' '.join(cmd), out, err))
+
 def getPartitionList():
     disks = getDiskList()
     rv  = []
@@ -495,6 +510,8 @@ class Disk:
         self.storage = (None, None)
         self.logs = (False, None)
         self.swap = (False, None)
+    def __str__(self):
+        return "Disk({})".format(self.__dict__)
 
 INSTALL_RETAIL = 1
 STORAGE_LVM = 1
@@ -514,10 +531,12 @@ def probeDisk(device):
         swap is a tuple of True or False and the partition device
     """
 
+    logger.debug("probeDisk(%r)", device)
     disk = Disk(device)
     possible_srs = []
 
     tool = PartitionTool(device)
+    tool.dump()
     for num, part in tool.items():
         label = None
         part_device = tool._partitionDevice(num)
@@ -545,6 +564,8 @@ def probeDisk(device):
             disk.swap = (True, part_device)
         elif part['id'] == GPTPartitionTool.ID_EFI_BOOT or part['id'] == GPTPartitionTool.ID_BIOS_BOOT:
             disk.boot = (True, part_device)
+        else:
+            logger.info("part %s has unknown id: %s", num, part)
 
     lv_tool = len(possible_srs) and LVMTool()
     for num in possible_srs:
