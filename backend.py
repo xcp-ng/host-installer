@@ -106,6 +106,7 @@ def getPrepSequence(ans, interactive):
     seq = [
         Task(util.getUUID, As(ans), ['installation-uuid']),
         Task(util.getUUID, As(ans), ['control-domain-uuid']),
+        Task(util.getMgmtAddrType, As(ans), ['management-address-type']),
         Task(util.randomLabelStr, As(ans), ['disk-label-suffix']),
         Task(diskutil.create_raid, A(ans, 'raid'), []),
         Task(partitionTargetDisk, A(ans, 'primary-disk', 'installation-to-overwrite', 'preserve-first-partition','sr-on-primary', 'target-platform'),
@@ -191,7 +192,7 @@ def getFinalisationSequence(ans):
         Task(writeFstab, A(ans, 'mounts', 'target-boot-mode', 'primary-disk', 'logs-partnum', 'swap-partnum', 'disk-label-suffix'), []),
         Task(enableAgent, A(ans, 'mounts', 'network-backend', 'services'), []),
         Task(configureCC, A(ans, 'mounts'), []),
-        Task(writeInventory, A(ans, 'installation-uuid', 'control-domain-uuid', 'mounts', 'primary-disk',
+        Task(writeInventory, A(ans, 'installation-uuid', 'control-domain-uuid', 'management-address-type', 'mounts', 'primary-disk',
                                'backup-partnum', 'logs-partnum', 'boot-partnum', 'swap-partnum', 'storage-partnum',
                                'guest-disks', 'net-admin-bridge',
                                'branding', 'net-admin-configuration', 'host-config', 'install-type'), []),
@@ -1640,7 +1641,7 @@ def writeXencommons(controlID, mounts):
     with open(os.path.join(mounts['root'], constants.XENCOMMONS_FILE), "w") as f:
         f.write(contents)
 
-def writeInventory(installID, controlID, mounts, primary_disk, backup_partnum, logs_partnum, boot_partnum, swap_partnum,
+def writeInventory(installID, controlID, mgmtAddrType, mounts, primary_disk, backup_partnum, logs_partnum, boot_partnum, swap_partnum,
                    storage_partnum, guest_disks, admin_bridge, branding, admin_config, host_config, install_type):
     inv = open(os.path.join(mounts['root'], constants.INVENTORY_FILE), "w")
     if 'product-brand' in branding:
@@ -1690,11 +1691,16 @@ def writeInventory(installID, controlID, mounts, primary_disk, backup_partnum, l
     inv.write("DOM0_MEM='%d'\n" % host_config['dom0-mem'])
     inv.write("DOM0_VCPUS='%d'\n" % host_config['dom0-vcpus'])
     inv.write("MANAGEMENT_INTERFACE='%s'\n" % admin_bridge)
-    # Default to IPv4 unless we have only got an IPv6 admin interface
-    if ((not admin_config.mode) and admin_config.modev6):
-        inv.write("MANAGEMENT_ADDRESS_TYPE='IPv6'\n")
+    # If we read MANAGEMENT_ADDRESS_TYPE from xensource-inventory use it
+    if mgmtAddrType:
+        # On upgrade, persist value read from install
+        inv.write("MANAGEMENT_ADDRESS_TYPE='%s'\n" % mgmtAddrType)
     else:
-        inv.write("MANAGEMENT_ADDRESS_TYPE='IPv4'\n")
+        # On install, default to IPv4 unless we have only got an IPv6 admin interface
+        if ((not admin_config.mode) and admin_config.modev6):
+            inv.write("MANAGEMENT_ADDRESS_TYPE='IPv6'\n")
+        else:
+            inv.write("MANAGEMENT_ADDRESS_TYPE='IPv4'\n")
     if constants.CC_PREPARATIONS and install_type == constants.INSTALL_TYPE_FRESH:
         inv.write("CC_PREPARATIONS='true'\n")
     inv.close()
