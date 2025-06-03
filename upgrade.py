@@ -185,7 +185,7 @@ class Upgrader(object):
             if not d: d = f
             src = os.path.join(src_base, f)
             dst = os.path.join(mounts['root'], d)
-            if os.path.exists(src):
+            if os.path.lexists(src):
                 logger.log("Restoring /%s" % f)
                 util.assertDir(os.path.dirname(dst))
                 # copy file/folder and try to preserve all attributes
@@ -607,9 +607,9 @@ class ThirdGenUpgrader(Upgrader):
         finally:
             primary_fs.unmount()
 
-    prepUpgradeArgs = ['installation-uuid', 'control-domain-uuid']
-    prepStateChanges = ['installation-uuid', 'control-domain-uuid']
-    def prepareUpgrade(self, progress_callback, installID, controlID):
+    prepUpgradeArgs = []
+    prepStateChanges = ['installation-uuid', 'control-domain-uuid', 'linstor-version']
+    def prepareUpgrade(self, progress_callback):
         """ Try to preserve the installation and control-domain UUIDs from
         xensource-inventory."""
         try:
@@ -618,7 +618,7 @@ class ThirdGenUpgrader(Upgrader):
         except KeyError:
             raise RuntimeError("Required information (INSTALLATION_UUID, CONTROL_DOMAIN_UUID) was missing from your xensource-inventory file.  Aborting installation; please replace these keys and try again.")
 
-        return installID, controlID
+        return installID, controlID, self.source.settings['linstor-version']
 
     def buildRestoreList(self, src_base):
         restore_list = []
@@ -703,6 +703,16 @@ class ThirdGenUpgrader(Upgrader):
 
         # Keep user multipath configuration
         restore_list += [{'dir': 'etc/multipath/conf.d', 're': re.compile(r'custom.*\.conf')}]
+
+        # LINSTOR
+        restore_list += ['etc/drbd-reactor.d/sm-linstor.toml',
+                         'etc/systemd/system/multi-user.target.wants/drbd-reactor.service',
+                         'etc/systemd/system/multi-user.target.wants/linstor-satellite.service',
+                         'etc/systemd/system/multi-user.target.wants/linstor-monitor.service',
+                         ]
+
+        # XAPI firewall-port plugin
+        restore_list += ['etc/sysconfig/iptables']
 
         return restore_list
 
