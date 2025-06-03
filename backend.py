@@ -160,7 +160,7 @@ def getPrepSequence(ans, interactive):
 
 def getMainRepoSequence(ans, repos):
     seq = []
-    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts'), a.get('kernel-alt')], [],
+    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts'), a.get('kernel-alt'), a.get('linstor-version')], [],
                 progress_scale=100,
                 pass_progress_callback=True,
                 progress_text="Installing %s..." % (", ".join([repo.name() for repo in repos]))))
@@ -423,6 +423,21 @@ def performInstallation(answers, ui_package, interactive):
     update_repositories = []
     answers_pristine = answers.copy()
     determineRepositories(answers, answers_pristine, main_repositories, update_repositories)
+
+    # if upgrading a host with LINSTOR, check we can upgrade it first
+    if answers['install-type'] == INSTALL_TYPE_REINSTALL and answers['linstor-version']:
+        available_linstor_versions = repository.listPackagesFromRepos(
+            main_repositories, 'linstor-satellite', '%{evr}')
+        if not available_linstor_versions:
+            raise RuntimeError("Cannot upgrade host with LINSTOR using a package source "
+                               "that does not have LINSTOR.  Please use as package source the "
+                               "repository on the dedicated ISO.")
+        if answers['linstor-version'] not in available_linstor_versions:
+            raise RuntimeError("Cannot upgrade host with LINSTOR %s, "
+                               "upgrade repository has versions: %s.  "
+                               "Please make sure your pool is uptodate and use the "
+                               "latest dedicated ISO." %
+                               (answers['linstor-version'], ', '.join(available_linstor_versions)))
 
     # perform installation:
     prep_seq = getPrepSequence(answers, interactive)

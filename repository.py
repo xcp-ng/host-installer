@@ -187,7 +187,8 @@ class YumRepository(Repository):
         assert self._targets is not None
         url = self._accessor.url()
         logger.log("URL: " + str(url))
-        with open('/root/yum.conf', 'w') as yum_conf:
+        yum_conf_path = '/root/yum-%s.conf' % (self._identifier,)
+        with open(yum_conf_path, 'w') as yum_conf:
             yum_conf.write(self._yum_conf)
             yum_conf.write("""
 [install]
@@ -205,7 +206,7 @@ baseurl=%s
                 yum_conf.write(repo_config)
 
         self.disableInitrdCreation(mounts['root'])
-        installFromYum(self._targets, mounts, progress_callback, self._cachedir)
+        installFromYum(yum_conf_path, self._targets, mounts, progress_callback, self._cachedir)
         self.enableInitrdCreation()
 
     def installPackages(self, progress_callback, mounts):
@@ -427,7 +428,8 @@ history_record=false
     def isRepo(cls, accessor):
         if UpdateYumRepository.isRepo(accessor):
             url = accessor.url()
-            with open('/root/yum.conf', 'w') as yum_conf:
+            yum_conf_path = '/root/yum-driverrepo.conf'
+            with open(yum_conf_path, 'w') as yum_conf:
                 yum_conf.write(cls._yum_conf)
                 yum_conf.write("""
 [driverrepo]
@@ -442,7 +444,7 @@ baseurl=%s
                     yum_conf.write("password=%s\n" % (url.getPassword(),))
 
             # Check that the drivers group exists in the repo.
-            rv, out = util.runCmd2(['yum', '-c', '/root/yum.conf',
+            rv, out = util.runCmd2(['yum', '-c', yum_conf_path,
                                     'group', 'summary', 'drivers'], with_stdout=True)
             if rv == 0 and 'Groups: 1\n' in out.strip():
                 return True
@@ -793,11 +795,11 @@ def findRepositoriesOnMedia(drivers=False):
 
     return repos
 
-def installFromYum(targets, mounts, progress_callback, cachedir):
+def installFromYum(yum_conf_path, targets, mounts, progress_callback, cachedir):
         # Use a temporary file to avoid deadlocking
         stderr = tempfile.TemporaryFile()
 
-        yum_command = ['yum', '-c', '/root/yum.conf',
+        yum_command = ['yum', '-c', yum_conf_path,
                        '--installroot', mounts['root'],
                        'install', '-y'] + targets
         logger.log("Running yum: %s" % ' '.join(yum_command))
@@ -868,35 +870,38 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir))
 
-def installFromRepos(progress_callback, repos, mounts, kernel_alt):
-    """Install from a stacked set of repositories"""
-
-    logger.log("installFromRepos, kernel_alt=%s" % (kernel_alt,))
-    cachedir = "var/cache/yum/installer"
-    for repo in repos:
-        repo._accessor.start()
-
-    try:
-        # Build a yum config
-        with open('/root/yum.conf', 'w') as yum_conf:
-            yum_conf.write(_generateYumConf(cachedir))
-            for repo in repos:
-                url = repo._accessor.url()
-                yum_conf.write("""
+def createMainYumConfig(yum_conf_path, repos, cachedir):
+    with open(yum_conf_path, 'w') as yum_conf:
+        yum_conf.write(_generateYumConf(cachedir))
+        for repo in repos:
+            url = repo._accessor.url()
+            yum_conf.write("""
 [%s]
 name=%s
 baseurl=%s
 """ % (repo.identifier(), repo.identifier(), url.getPlainURL()))
-                username = url.getUsername()
-                if username is not None:
-                    yum_conf.write("username=%s\n" % (url.getUsername(),))
-                password = url.getPassword()
-                if password is not None:
-                    yum_conf.write("password=%s\n" % (url.getPassword(),))
-                repo_config = repo._repo_config()
-                if repo_config is not None:
-                    yum_conf.write(repo_config)
+            username = url.getUsername()
+            if username is not None:
+                yum_conf.write("username=%s\n" % (url.getUsername(),))
+            password = url.getPassword()
+            if password is not None:
+                yum_conf.write("password=%s\n" % (url.getPassword(),))
+            repo_config = repo._repo_config()
+            if repo_config is not None:
+                yum_conf.write(repo_config)
 
+def installFromRepos(progress_callback, repos, mounts, kernel_alt, linstor_version):
+    """Install from a stacked set of repositories"""
+
+    logger.log("installFromRepos, kernel_alt=%s" % (kernel_alt,))
+    cachedir = "var/cache/yum/installer"
+    yum_conf_path = '/root/yum.conf'
+
+    for repo in repos:
+        repo._accessor.start()
+
+    try:
+        createMainYumConfig(yum_conf_path, repos, cachedir)
 
         repos[0].disableInitrdCreation(mounts['root'])
         targets = []
@@ -906,9 +911,41 @@ baseurl=%s
         targets = list(set(targets))
         if kernel_alt:
             targets.append('kernel-alt')
+        if linstor_version:
+            targets.extend(['xcp-ng-release-linstor', 'xcp-ng-linstor',
+                            'linstor-satellite-%s' % linstor_version,
+                            'linstor-controller-%s' % linstor_version,
+                            ])
 
-        installFromYum(targets, mounts, progress_callback, cachedir)
+        installFromYum(yum_conf_path, targets, mounts, progress_callback, cachedir)
         repos[0].enableInitrdCreation()
     finally:
         for repo in repos:
             repo._accessor.finish()
+
+# unlike modern dnf, silly yum in el7 does not hide "0:" in "%{evr}"
+NULL_EPOCH_RE = re.compile(r"(.*)\b0:(.*)$")
+def hideNullEpoch(package):
+    m = re.match(NULL_EPOCH_RE, package)
+    if not m:
+        return package
+    return "".join(m.groups())
+
+def listPackagesFromRepos(repos, rpm_pattern, query_format='%{nevr}'):
+    cachedir = "var/cache/yum/installer"
+    yum_conf_path = '/root/yum.conf'
+
+    for repo in repos:
+        repo._accessor.start()
+
+    try:
+        createMainYumConfig(yum_conf_path, repos, cachedir)
+
+        rv, out = util.runCmd2(['repoquery', '-c', yum_conf_path,
+                                '--qf', query_format,
+                                rpm_pattern], with_stdout=True)
+    finally:
+        for repo in repos:
+            repo._accessor.finish()
+
+    return [hideNullEpoch(package) for package in out.split()]
