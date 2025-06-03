@@ -163,12 +163,26 @@ Installer
     implied when one is not provided.
 
 
-  --network_config=dhcp[:vlan=vlan]|static:ip=ip;netmask=netmask[;gateway=gw][;dns=dns1[,dns2]][;domain=domain][;vlan=vlan]
+  --network_config=dhcp[:vlan=vlan]
+  --network_config=static:ip=ip;netmask=netmask[;gateway=gw][;dns=dns1[,dns2]][;domain=domain][;vlan=vlan]
+  --network_config=none[:vlan=vlan]
 
-    Defines the IP configuration to bring up to allow access to
+    Defines the IPv4 configuration to bring up to allow access to
     answerfiles. VLAN is supported from 1 to 4094.
 
     Default: dhcp
+
+
+  --network_config6=dhcp
+  --network_config6=autoconf
+  --network_config6=none
+
+    Defines the IPv6 configuration to bring up to allow access to
+    answerfiles. VLAN is taken from --network_config (see
+    https://github.com/xenserver/host-installer/issues/32).  It is
+    advised to specify it as --network_config=none:vlan=vlan
+
+    Default: none
 
 
   --reboot
