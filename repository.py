@@ -933,7 +933,7 @@ def hideNullEpoch(package):
 
 def listPackagesFromRepos(repos, rpm_pattern, query_format='%{nevr}'):
     cachedir = "var/cache/yum/installer"
-    yum_conf_path = '/root/yum.conf'
+    yum_conf_path = '/root/yum-repoquery.conf'
 
     for repo in repos:
         repo._accessor.start()
