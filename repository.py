@@ -305,12 +305,13 @@ class MainYumRepository(YumRepositoryWithInfo):
         self._parse_repodata(accessor)
         accessor.finish()
 
-    def _repo_config(self):
+    def _repo_config(self, repogpgcheck_override=None):
         if len(self.keyfiles) > 0:
             # Only deal with a single key for the repo
             keyfile = self.keyfiles[0]
             infh = None
             outfh = None
+            repo_gpg_check = int(self._repo_gpg_check) if repogpgcheck_override is None else repogpgcheck_override
             try:
                 infh = self._accessor.openAddress(keyfile)
                 key_path = os.path.join('/root', os.path.basename(keyfile))
@@ -320,7 +321,7 @@ class MainYumRepository(YumRepositoryWithInfo):
 gpgcheck=%s
 repo_gpgcheck=%s
 gpgkey=file://%s
-""" % (int(self._gpg_check), int(self._repo_gpg_check), key_path)
+""" % (int(self._gpg_check), repo_gpg_check, key_path)
             finally:
                 if infh:
                     infh.close()
@@ -870,7 +871,7 @@ def installFromYum(yum_conf_path, targets, mounts, progress_callback, cachedir):
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir))
 
-def createMainYumConfig(yum_conf_path, repos, cachedir):
+def createMainYumConfig(yum_conf_path, repos, cachedir, repogpgcheck_override=None):
     with open(yum_conf_path, 'w') as yum_conf:
         yum_conf.write(_generateYumConf(cachedir))
         for repo in repos:
@@ -886,7 +887,7 @@ baseurl=%s
             password = url.getPassword()
             if password is not None:
                 yum_conf.write("password=%s\n" % (url.getPassword(),))
-            repo_config = repo._repo_config()
+            repo_config = repo._repo_config(repogpgcheck_override=repogpgcheck_override)
             if repo_config is not None:
                 yum_conf.write(repo_config)
 
@@ -939,7 +940,7 @@ def listPackagesFromRepos(repos, rpm_pattern, query_format='%{nevr}'):
         repo._accessor.start()
 
     try:
-        createMainYumConfig(yum_conf_path, repos, cachedir)
+        createMainYumConfig(yum_conf_path, repos, cachedir, repogpgcheck_override=0)
 
         rv, out = util.runCmd2(['repoquery', '-c', yum_conf_path,
                                 '--qf', query_format,
