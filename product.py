@@ -48,6 +48,14 @@ def getLinstorVersion(rootfs_mount):
         return None
     return out
 
+def getXapiVersion(rootfs_mount):
+    """ Returns the package version of the xapi packages"""
+    command = ['rpm', '--root', rootfs_mount, '-q', '--qf', '%{evr}', 'xapi-core']
+    rc, out = util.runCmd2(command, with_stdout=True)
+    if rc != 0:
+        return None
+    return out
+
 class ExistingInstallation:
     def __init__(self, primary_disk, boot_device, state_device):
         self.primary_disk = primary_disk
@@ -387,6 +395,9 @@ class ExistingInstallation:
 
             results['linstor-version'] = getLinstorVersion(self.state_fs.mount_point) or None
             logger.info("LINSTOR version detected: %s" % (results['linstor-version'],))
+
+            results['xapi-version'] = getXapiVersion(self.state_fs.mount_point) or None
+            logger.info("xapi version detected: %s" % (results['xapi-version'],))
 
         finally:
             self.unmount_state()
