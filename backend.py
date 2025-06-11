@@ -430,9 +430,9 @@ def performInstallation(answers, ui_package, interactive):
         available_linstor_versions = repository.listPackagesFromRepos(
             main_repositories, 'linstor-satellite', '%{evr}')
         if not available_linstor_versions:
-            raise RuntimeError("Cannot upgrade host with LINSTOR using a package source "
-                               "that does not have LINSTOR.  Please use as package source the "
-                               "repository on the dedicated ISO.")
+            raise RuntimeError("Cannot upgrade host with LINSTOR using an installation source "
+                               "that does not have LINSTOR.  Please use an installation medium "
+                               "which supports upgrading LINSTOR.")
         if answers['linstor-version'] not in available_linstor_versions:
             raise RuntimeError("Cannot upgrade host with LINSTOR %s, "
                                "upgrade repository has versions: %s.  "
