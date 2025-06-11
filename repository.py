@@ -932,7 +932,7 @@ def hideNullEpoch(package):
         return package
     return "".join(m.groups())
 
-def listPackagesFromRepos(repos, rpm_pattern, query_format='%{nevr}'):
+def listPackagesFromRepos(repos, rpm_pattern, query_format='%{nevr}', latest_only=False):
     cachedir = "var/cache/yum/installer"
     yum_conf_path = '/root/yum-repoquery.conf'
 
@@ -944,7 +944,7 @@ def listPackagesFromRepos(repos, rpm_pattern, query_format='%{nevr}'):
 
         rv, out = util.runCmd2(['repoquery', '-c', yum_conf_path,
                                 '--qf', query_format,
-                                rpm_pattern], with_stdout=True)
+                                rpm_pattern] + ([] if latest_only else ['--show-duplicates']), with_stdout=True)
     finally:
         for repo in repos:
             repo._accessor.finish()

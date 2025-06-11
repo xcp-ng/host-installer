@@ -10,6 +10,7 @@ import datetime
 import re
 import tempfile
 
+import rpm
 import repository
 import generalui
 import xelogging
@@ -161,7 +162,7 @@ def getPrepSequence(ans, interactive):
 
 def getMainRepoSequence(ans, repos):
     seq = []
-    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts'), a.get('kernel-alt'), a.get('linstor-version')], [],
+    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts'), a.get('kernel-alt'), a.get('linstor-version'), a.get('xapi-version')], [],
                 progress_scale=100,
                 pass_progress_callback=True,
                 progress_text="Installing %s..." % (", ".join([repo.name() for repo in repos]))))
@@ -439,6 +440,19 @@ def performInstallation(answers, ui_package, interactive):
                                "Please make sure your pool is uptodate and use the "
                                "latest dedicated ISO." %
                                (answers['linstor-version'], ', '.join(available_linstor_versions)))
+
+    # if upgrading a host with xapi, check we can upgrade it first
+    if answers['install-type'] == INSTALL_TYPE_REINSTALL and answers['xapi-version']:
+        available_xapi_versions = repository.listPackagesFromRepos(
+            main_repositories, 'xapi-core', '%{evr}', latest_only=True)
+        if not available_xapi_versions:
+            raise RuntimeError("No XAPI package found in package source")
+        assert len(available_xapi_versions) == 1
+        if rpm.labelCompare(('pkg', 'arch', available_xapi_versions[0]), ('pkg', 'arch', answers['xapi-version'])) < 0:
+            raise RuntimeError("Cannot upgrade the host: the XAPI version on the host (%s) "
+                               "is newer than the XAPI version to install (%s). "
+                               "Please refer to the XCP-ng upgrade documentation." %
+                               (answers['xapi-version'], available_xapi_versions[0]))
 
     # perform installation:
     prep_seq = getPrepSequence(answers, interactive)
