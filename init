@@ -162,9 +162,10 @@ def main(args):
 
     # start the user interface:
     if ui:
-        # switch to ISO 8859-1 mode so line drawing characters work as expected on
-        # vt100 terminals.
-        print("\033%@")
+        # switch to UTF-8 mode for line drawing characters, to reflect
+        # NEWT's behaviour of forcefully outputint UTF-8 regardless of
+        # the locale
+        print("\033%G")
 
         logger.log("Starting 'init' user interface on %s" % tty)
         ui.init_ui()
