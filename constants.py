@@ -189,6 +189,9 @@ INIT_SERVICE_FILES = [
     'var/lib/misc/ran-storage-init',
 ]
 
+# package names
+KERNEL_PKG = 'kernel-xcpng'
+
 # optional features
 FEATURES_DIR = "/etc/xensource/features"
 HAS_SUPPLEMENTAL_PACKS = os.path.exists(os.path.join(FEATURES_DIR, "supplemental-packs"))
