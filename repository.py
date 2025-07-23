@@ -800,6 +800,7 @@ def findRepositoriesOnMedia(drivers=False):
 def installFromYum(targets, mounts, progress_callback, cachedir):
         dnf_cmd = ['dnf', '--releasever=/', '--config=/root/yum.conf',
                        '--installroot', mounts['root'],
+                       '--rpmverbosity=debug',
                        'install', '-y'] + targets
         logger.log("Running : %s" % ' '.join(dnf_cmd))
         p = subprocess.Popen(dnf_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
