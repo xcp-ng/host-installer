@@ -178,7 +178,7 @@ INIT_SERVICE_FILES = [
 ]
 
 # package names
-KERNEL_PKG = 'kernel'
+KERNEL_PKG = 'kernel-core'
 
 # optional features
 FEATURES_DIR = "/etc/xensource/features"
