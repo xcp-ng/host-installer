@@ -380,7 +380,7 @@ class ThirdGenUpgrader(Upgrader):
                     if os.path.exists(src):
                         util.runCmd2(['cp', '-f', src, os.path.join(backup_fs.mount_point, destination)])
 
-                configMaps = [("efi-grub.cfg", "boot/efi/EFI/xenserver/grub.cfg"),
+                configMaps = [("efi-grub.cfg", "boot/efi/EFI/almalinux/grub.cfg"),
                                 ("grub.cfg", "boot/grub"),
                                 ("menu.lst", "boot/grub"),
                                 ("extlinux.conf", "boot")]

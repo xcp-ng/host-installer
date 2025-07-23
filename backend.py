@@ -1086,7 +1086,7 @@ def installBootLoader(mounts, disk, boot_partnum, primary_partnum, branding,
     if host_config:
         s = serial and {'port': serial.id, 'baud': int(serial.baud)} or None
 
-        fn = os.path.join(mounts['boot'], "efi/EFI/xenserver/grub.cfg")
+        fn = os.path.join(mounts['boot'], "efi/EFI/almalinux/grub.cfg")
         boot_config = bootloader.Bootloader('grub2', fn,
                                             timeout=constants.BOOT_MENU_TIMEOUT,
                                             serial=s, location=location)
@@ -1131,10 +1131,10 @@ def setEfiBootEntry(mounts, disk, boot_partnum, install_type, branding):
                                  "Failed to remove efi boot entry %r" % (line,))
 
     # Then add a new one
-    if os.path.exists(os.path.join(mounts['esp'], 'EFI/xenserver/shimx64.efi')):
-        efi = "EFI/xenserver/shimx64.efi"
-    elif os.path.exists(os.path.join(mounts['esp'], 'EFI/xenserver/grubx64.efi')):
-        efi = "EFI/xenserver/grubx64.efi"
+    if os.path.exists(os.path.join(mounts['esp'], 'EFI/almalinux/shimx64.efi')):
+        efi = "EFI/almalinux/shimx64.efi"
+    elif os.path.exists(os.path.join(mounts['esp'], 'EFI/almalinux/grubx64.efi')):
+        efi = "EFI/almalinux/grubx64.efi"
     else:
         raise RuntimeError("Failed to find EFI loader")
     rc, err = util.runCmd2(["chroot", mounts['root'], "/usr/sbin/efibootmgr", "-c",

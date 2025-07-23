@@ -1,7 +1,7 @@
 # destinations
 DESTDIR =
 INSTALLER_DIR = /opt/xensource/installer
-EFI_DIR = /EFI/xenserver
+EFI_DIR = /EFI/almalinux
 SERVICE_DIR = usr/lib/systemd/system
 # multipath.conf to be taken as a base
 XS_MPATH_CONF = /etc/multipath.conf

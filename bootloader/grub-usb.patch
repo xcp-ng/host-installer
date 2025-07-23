@@ -1,5 +1,5 @@
---- /EFI/xenserver/grub.cfg	2024-03-18 13:30:12.000000000 +0100
-+++ /EFI/xenserver/grub-usb.cfg	2024-03-18 13:30:12.000000000 +0100
+--- /EFI/almalinux/grub.cfg	2024-03-18 13:30:12.000000000 +0100
++++ /EFI/almalinux/grub-usb.cfg	2024-03-18 13:30:12.000000000 +0100
 @@ -15,6 +15,7 @@
  insmod ext2
  
