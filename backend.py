@@ -879,7 +879,7 @@ def getXenVersion(rootfs_mount):
 
 def getKernelVersion(rootfs_mount):
     """ Returns the kernel release (uname -r) of the installed kernel """
-    kernel_version = ['rpm', '--root', rootfs_mount, '-q', '--provides', 'kernel']
+    kernel_version = ['rpm', '--root', rootfs_mount, '-q', '--provides', constants.KERNEL_PKG]
     rc, out = util.runCmd2(kernel_version, with_stdout=True)
     if rc != 0:
         return None
