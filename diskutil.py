@@ -874,3 +874,12 @@ def fs_type_from_device(device):
     msg = "Failed to identify filesystem type on %s" % device
     logger.log(msg)
     raise Exception(msg)
+
+def fs_uuid_from_device(device):
+    (rc, stdout) = util.runCmd2(['/bin/lsblk', '-n', '-o', 'UUID', device], with_stdout=True)
+    if rc == 0:
+        return stdout.strip()
+
+    msg = "Failed to identify UUID of %s" % device
+    logger.log(msg)
+    raise Exception(msg)
