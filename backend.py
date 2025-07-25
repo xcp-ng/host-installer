@@ -1167,13 +1167,19 @@ def installBootLoader(mounts, disk, primary_partnum,
                       boot_serial=None, host_config=None):
     assert(location in [constants.BOOT_LOCATION_MBR, constants.BOOT_LOCATION_PARTITION])
 
+    root_partition = partitionDevice(disk, primary_partnum)
     if host_config:
         s = serial and {'port': serial.id, 'baud': int(serial.baud)} or None
 
         fn = os.path.join(mounts['boot'], "efi/EFI/almalinux/grub.cfg")
         boot_config = bootloader.Bootloader('grub2', fn,
                                             timeout=constants.BOOT_MENU_TIMEOUT,
-                                            serial=s, location=location)
+                                            serial=s, location=location,
+                                            prefix={
+                                                'uuid': diskutil.fs_uuid_from_device(root_partition),
+                                                'path': '/usr/lib/grub',
+                                            }
+                                            )
         xen_version = getXenVersion(mounts['root'])
         if xen_version is None:
             raise RuntimeError("Unable to determine Xen version.")
@@ -1189,7 +1195,6 @@ def installBootLoader(mounts, disk, primary_partnum,
             logger.log("Committing legacy bootloader config")
             boot_config.commit()
 
-    root_partition = partitionDevice(disk, primary_partnum)
 
 def check_efibootmgr_err(rc, err, install_type, err_type):
     if rc != 0:
