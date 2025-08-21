@@ -183,6 +183,7 @@ def getFinalisationSequence(ans):
         Task(writeFstab, A(ans, 'mounts', 'primary-disk', 'logs-partnum', 'swap-partnum', 'disk-label-suffix', 'fs-type'), []),
         Task(enableAgent, A(ans, 'mounts', 'network-backend', 'services'), []),
         Task(configureCC, A(ans, 'mounts'), []),
+        Task(configureXcpng, A(ans, 'mounts'), []),
         Task(writeInventory, A(ans, 'installation-uuid', 'control-domain-uuid', 'mounts', 'primary-disk',
                                'backup-partnum', 'logs-partnum', 'boot-partnum', 'swap-partnum', 'storage-partnum',
                                'guest-disks', 'net-admin-bridge',
@@ -1315,6 +1316,17 @@ def configureCC(mounts):
         rules = conf.read()
     with open(os.path.join(mounts['root'], 'etc', 'sysconfig', 'iptables'), 'wb') as out:
         out.write(rules.replace(b'@SSH_RULE@', ssh_rule.encode()))
+
+def configureXcpng(mounts):
+    """Hopefully-temporary hacks for XCP-ng 9"""
+
+    # we should instead install proper rules and let XAPI hook into them
+    assert util.runCmd2(['chroot', mounts['root'],
+                         'systemctl', 'disable', 'iptables.service']) == 0
+
+    # EL10 disabled ssh root login
+    with open(os.path.join(mounts['root'], 'etc/ssh/sshd_config'), "at") as ssh_cfg:
+        print("PermitRootLogin yes", file=ssh_cfg)
 
 def writeResolvConf(mounts, hn_conf, ns_conf):
     (manual_hostname, hostname) = hn_conf
