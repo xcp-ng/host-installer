@@ -892,6 +892,9 @@ baseurl=%s
         targets = list(set(targets))
 
         installFromYum(targets, mounts, progress_callback, cachedir)
+        # for some reason installing at the same time as some undetermined
+        # other does not work, silently (hail DNF/RPM :sob:)
+        installFromYum(['crypto-policies'], mounts, progress_callback, cachedir)
         repos[0].enableInitrdCreation()
     finally:
         for repo in repos:
