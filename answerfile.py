@@ -134,7 +134,7 @@ class Answerfile:
         results['backup-existing-installation'] = False
 
         results.update(self.parseRaid())
-        results.update(self.parseDisks())
+        results.update(self.parseDisks(raid=results.get('raid', {})))
         results.update(self.parseInterface())
         results.update(self.parseRootPassword())
         results.update(self.parseNSConfig())
@@ -360,8 +360,14 @@ class Answerfile:
         large_block_disks = [
             disk
             for disk in guest_disks
-            if diskutil.isLargeBlockDisk(disk)
+            if disk not in raid and diskutil.isLargeBlockDisk(disk)
         ]
+        for disk in guest_disks:
+            if disk in raid:
+                for child in raid[disk]:
+                    if diskutil.isLargeBlockDisk(child):
+                        large_block_disks.append(disk)
+                        break
 
         if SR_TYPE_LARGE_BLOCK and len(large_block_disks) > 0:
             default_sr_type = SR_TYPE_LARGE_BLOCK
