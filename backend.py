@@ -1324,6 +1324,12 @@ def configureXcpng(mounts):
     assert util.runCmd2(['chroot', mounts['root'],
                          'systemctl', 'disable', 'iptables.service']) == 0
 
+    # make sure Alma/EPEL repositories are disabled by default
+    assert util.runCmd2(['chroot', mounts['root'],
+                         'dnf', 'config-manager', '--set-disabled', '*']) == 0
+    assert util.runCmd2(['chroot', mounts['root'],
+                         'dnf', 'config-manager', '--set-enabled', 'xcp-ng-*']) == 0
+
     # EL10 disabled ssh root login
     with open(os.path.join(mounts['root'], 'etc/ssh/sshd_config'), "at") as ssh_cfg:
         print("PermitRootLogin yes", file=ssh_cfg)
