@@ -115,6 +115,8 @@ def getPrepSequence(ans, interactive):
 
         if ans['swraid']:
             seq.append(Task(setupSWRAIDDevice, A(ans, 'disk-label-suffix', 'physical-disks', 'guest-disks'), ['primary-disk', 'guest-disks']))
+        else:
+            seq.append(Task(stopBlockingSWRAIDDevices, A(ans, 'physical-disks'), []))
 
     seq.append(Task(partitionTargetDisk, A(ans, 'primary-disk', 'installation-to-overwrite', 'preserve-first-partition','sr-on-primary'),
             ['primary-partnum', 'backup-partnum', 'storage-partnum', 'boot-partnum', 'logs-partnum', 'swap-partnum']))
@@ -538,6 +540,11 @@ def configureNTP(mounts, ntp_config_method, ntp_servers):
     else:
         rewriteNTPConf(mounts['root'], [])
 
+# Stop any multi-devices using the physical disks we require
+def stopBlockingSWRAIDDevices(physical_disks):
+    for device in getMdDevicesUsing(physical_disks):
+        diskutil.stopSWRAID(device)
+
 # Setup a new SW RAID device using mdadm
 # The primary-disk (/dev/md/*) is built from the physical disks provided in the answerfile
 def setupSWRAIDDevice(disk_label_suffix, physical_disks, guest_disks):
@@ -548,8 +555,7 @@ def setupSWRAIDDevice(disk_label_suffix, physical_disks, guest_disks):
         diskutil.stopSWRAID(primary_disk)
 
     # Stop any multi-devices using the physical disks we require
-    for device in getMdDevicesUsing(physical_disks):
-        diskutil.stopSWRAID(device)
+    stopBlockingSWRAIDDevices(physical_disks)
 
     # Zero any superblocks on the physical disks
     for disk in physical_disks:
