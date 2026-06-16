@@ -720,7 +720,7 @@ def disk_more_info(context):
     if not context: return True
 
     usage = 'unknown'
-    disk = diskutil.probeDisk(context)
+    disk = diskutil.probeDisk(context, raid_members = diskutil.RAID_MEMBERS_DONT_PROBE)
     if disk.root[0]:
         usage = "%s installation" % MY_PRODUCT_BRAND
     elif disk.storage[0]:
@@ -802,7 +802,7 @@ You may need to change your system settings to boot from this disk.""" % (MY_PRO
 
     # entry contains the 'de' part of the tuple passed in
     # determine current usage
-    disk = diskutil.probeDisk(entry)
+    disk = diskutil.probeDisk(entry, raid_members = diskutil.RAID_MEMBERS_PROBE_RAID)
     if disk.storage[0]:
         if confirm_disk_erase(entry) == 'no':
             return REPEAT_STEP
@@ -910,7 +910,7 @@ def select_guest_disks(answers):
         if i == answers['primary-disk']:
             continue
 
-        disk = diskutil.probeDisk(i)
+        disk = diskutil.probeDisk(i, raid_members = diskutil.RAID_MEMBERS_PROBE_RAID)
         if disk.storage[0]:
             if confirm_disk_erase(i) == 'no':
                 return REPEAT_STEP
