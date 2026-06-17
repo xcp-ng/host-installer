@@ -747,6 +747,52 @@ def setup_runtime_networking(answers):
     # Get the answers from the user
     return tui.network.requireNetworking(answers, defaults)
 
+def raid_array_ui(answers):
+    disk_entries = [e for e in sorted_disk_list() if not diskutil.is_raid(e)]
+    raid_disks = [de for de in disk_entries if diskutil.is_raid(de)]
+    raid_slaves = [slave for master in raid_disks for slave in diskutil.getDeviceSlaves(master)]
+    entries = []
+    for de in disk_entries:
+        if de not in raid_slaves and de not in raid_disks:
+            vendor, model, size = diskutil.getExtendedDiskInfo(de)
+            string_entry = "%s - %s [%s %s]" % (
+                diskutil.getHumanDiskName(de), diskutil.getHumanDiskSize(size), vendor, model)
+            entries.append((string_entry, de))
+    if len(entries) < 2:
+        logger.info("not enough disk entries, skipping raid screen")
+        return SKIP_SCREEN
+    text = TextboxReflowed(54, "Do you want to group disks in a software RAID 1 array?  \n\n" +
+                           "The array will be created immediately and erase all the target disks.")
+    buttons = ButtonBar(tui.screen, [('Create', 'create'), ('Back', 'back')])
+    scroll, _ = snackutil.scrollHeight(3, len(entries))
+    cbt = CheckboxTree(3, scroll)
+    for (c_text, c_item) in entries:
+        cbt.append(c_text, c_item, False)
+    gf = GridFormHelp(tui.screen, 'RAID Array', 'guestdisk:info', 1, 4)
+    gf.add(text, 0, 0, padding=(0, 0, 0, 1))
+    gf.add(cbt, 0, 1, padding=(0, 0, 0, 1))
+    gf.add(buttons, 0, 3, growx=1)
+    gf.addHotKey('F5')
+
+    tui.update_help_line([None, "<F5> disk info"])
+    loop = True
+    while loop:
+        rc = gf.run()
+        if rc == 'F5':
+            disk_more_info(cbt.getCurrent())
+        else:
+            loop = False
+    tui.screen.popWindow()
+    tui.screen.popHelpLine()
+
+    answers['swraid'] = True
+    answers['physical-disks'] = cbt.getSelection()
+    answers['primary-disk'] = ""
+    tui.progress.clearModelessDialog()
+
+    logger.info("raid_array_ui: selected %s", answers['physical-disks'])
+    return RIGHT_FORWARDS
+
 def disk_more_info(context):
     if not context: return True
 
@@ -769,7 +815,9 @@ def disk_more_info(context):
     return True
 
 def sorted_disk_list(): # Smallest to largest, then alphabetical
-    return sorted(diskutil.getQualifiedDiskList(), key=lambda disk: (len(disk), disk))
+    return [e for e in
+            sorted(diskutil.getQualifiedDiskList(), key=lambda disk: (len(disk), disk))
+            if not diskutil.is_raid(e)]
 
 def confirm_disk_erase(disk):
     sr_overwrite_msg = """The selected disk, {}, contains a storage repository. The storage repository may currently be used by other hosts.
@@ -786,7 +834,8 @@ Are you sure you want to continue?"""
 # select drive to use as the Dom0 disk:
 def select_primary_disk(answers):
     button = None
-    diskEntries = sorted_disk_list()
+    diskEntries = ["RAID"] if answers.get('swraid', False) else []
+    diskEntries += sorted_disk_list()
 
     entries = []
     min_primary_disk_size = constants.min_primary_disk_size
@@ -816,6 +865,12 @@ def select_primary_disk(answers):
 
     tui.update_help_line([None, "<F5> more info"])
 
+    if len(entries) < 2:
+        logger.log("not enough disks, not proposing RAID creation")
+        propose_raid = False
+    else:
+        propose_raid = True
+
     scroll, height = snackutil.scrollHeight(4, len(entries))
     (button, entry) = snackutil.ListboxChoiceWindowEx(
         tui.screen,
@@ -824,12 +879,16 @@ def select_primary_disk(answers):
 
 You may need to change your system settings to boot from this disk.""" % (MY_PRODUCT_BRAND),
         entries,
-        ['Ok', 'Back'], 55, scroll, height, default, help='pridisk:info',
+        ['Ok', 'Software RAID', 'Back'] if propose_raid else ['Ok', 'Back'],
+        55, scroll, height, default, help='pridisk:info',
         hotkeys={'F5': disk_more_info})
 
     tui.screen.popHelpLine()
 
     if button == 'back': return LEFT_BACKWARDS
+
+    if button == 'software raid':
+        return raid_array_ui(answers)
 
     # entry contains the 'de' part of the tuple passed in
     # determine current usage
@@ -883,7 +942,8 @@ def check_sr_space(answers):
     return EXIT
 
 def select_guest_disks(answers):
-    diskEntries = sorted_disk_list()
+    diskEntries = ["RAID"] if answers.get('swraid', False) else []
+    diskEntries += sorted_disk_list()
 
     # CA-38329: filter out device mapper nodes (except primary disk) as these won't exist
     # at XenServer boot and therefore cannot be added as physical volumes to Local SR.
@@ -905,6 +965,9 @@ def select_guest_disks(answers):
     # Make a list of entries: (text, item)
     entries = []
     for de in diskEntries:
+        if de == 'RAID':
+            entries.append(("New RAID (%s)" % (','.join(answers['physical-disks']),), de))
+            continue
         entries.append((diskutil.getHumanDiskLabel(de), de))
 
     text = TextboxReflowed(54, "Which disks do you want to use for %s storage?  \n\nOne storage repository will be created that spans the selected disks.  You can choose not to prepare any storage if you want to create an advanced configuration after installation." % BRAND_GUEST)
@@ -936,7 +999,15 @@ def select_guest_disks(answers):
 
     if button == 'back': return LEFT_BACKWARDS
 
-    for i in cbt.getSelection():
+    selected_disks = cbt.getSelection()
+    physical_selected_disks = cbt.getSelection()
+    if "RAID" in selected_disks:
+        selected_disks.remove("RAID")
+        selected_disks.append("/dev/md127")
+        physical_selected_disks.remove("RAID")
+        physical_selected_disks += answers['physical-disks']
+
+    for i in physical_selected_disks:
         # The user has already confirmed the primary disk
         if i == answers['primary-disk']:
             continue
@@ -946,8 +1017,9 @@ def select_guest_disks(answers):
             if confirm_disk_erase(i) == 'no':
                 return REPEAT_STEP
 
-    answers['guest-disks'] = cbt.getSelection()
-    answers['sr-on-primary'] = answers['primary-disk'] in answers['guest-disks']
+    answers['guest-disks'] = selected_disks
+    answers['sr-on-primary'] = (answers['primary-disk'] in answers['guest-disks']
+                                or '/dev/md127' in answers['guest-disks'])
 
     # if the user select no disks for guest storage, check this is what
     # they wanted:
@@ -969,7 +1041,10 @@ def get_sr_type(answers):
     assert guest_disks is not None
 
     need_large_block_sr_type = any(diskutil.isLargeBlockDisk(disk)
-                                   for disk in guest_disks)
+                                   for disk in guest_disks if disk != "/dev/md127")
+    if "/dev/md127" in guest_disks:
+        need_large_block_sr_type |= any(diskutil.isLargeBlockDisk(disk)
+                                        for disk in answers['physical-disks'])
 
     if not need_large_block_sr_type or not constants.SR_TYPE_LARGE_BLOCK:
         srtype = answers.get('sr-type', constants.SR_TYPE_EXT)

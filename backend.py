@@ -799,7 +799,7 @@ def setActiveDiskPartition(disk, boot_partnum, primary_partnum):
 
 def getSRPhysDevs(primary_disk, storage_partnum, guest_disks):
     def sr_partition(disk):
-        if disk == primary_disk:
+        if disk == primary_disk or disk == '/dev/md127':
             return partitionDevice(disk, storage_partnum)
         else:
             return disk

@@ -331,7 +331,20 @@ class Answerfile:
                                                             default='if-utility')
         results['swraid'] = getBoolAttribute(node, ['swraid'], default=False)
 
-        if results['swraid']:
+        # "legacy" XCP-ng RAID definition
+        legacy_raid = {}
+        for raid_node in getElementsByTagName(self.top_node, ['raid']):
+            disk_device = normalize_disk(getStrAttribute(raid_node, ['device'], mandatory=True))
+            disks = [normalize_disk(getText(node)) for node in getElementsByTagName(raid_node, ['disk'])]
+            legacy_raid[disk_device] = disks
+
+        if legacy_raid:
+            assert len(legacy_raid) == 1, "Building more than one RAID is no supported any more"
+            # FIXME: the following be problematic, legacy raid had implicit localhost:127 name
+            results['primary-disk'] = ""  # Populated with disk-label-suffix during installer prep
+            results['physical-disks'] = next(iter(legacy_raid.values()))
+            results['swraid'] = True
+        elif results['swraid']:
             disks = getText(node).split(",")
             if len(disks) != 2:
                 raise AnswerfileException("swraid primary-disk requires exactly two physical disks")
