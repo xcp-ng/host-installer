@@ -65,8 +65,7 @@ def error_string(error, logname, with_hd):
     if err[-1:] != '.':
         err += '.'
 
-    return ('An unrecoverable error has occurred.  ' + err +
-        '\n\nPlease refer to your user guide or contact a Technical Support Representative for more details.')
+    return ('An unrecoverable error has occurred.  ' + err)
 
 # minimum hardware specs:
 # memory checks should be done against MIN_SYSTEM_RAM_MB since libxc
@@ -214,3 +213,6 @@ class MultipathConfig(Enum):
     DISABLED = 0
     ENABLED = 1
     IF_MULTIPLE = 2
+
+# crypto configuration
+RSA_MIN_KEY_SIZE = 2048

@@ -33,6 +33,7 @@ from xcp.version import Version
 import version
 from version import *
 from constants import *
+from diskutil import getRemovableDeviceList
 from functools import reduce
 
 MY_PRODUCT_BRAND = PRODUCT_BRAND or PLATFORM_NAME
@@ -115,6 +116,8 @@ def getPrepSequence(ans, interactive):
 
         if ans['swraid']:
             seq.append(Task(setupSWRAIDDevice, A(ans, 'disk-label-suffix', 'physical-disks', 'guest-disks'), ['primary-disk', 'guest-disks']))
+        else:
+            seq.append(Task(stopBlockingSWRAIDDevices, A(ans, 'physical-disks'), []))
 
     seq.append(Task(partitionTargetDisk, A(ans, 'primary-disk', 'installation-to-overwrite', 'preserve-first-partition','sr-on-primary'),
             ['primary-partnum', 'backup-partnum', 'storage-partnum', 'boot-partnum', 'logs-partnum', 'swap-partnum']))
@@ -157,7 +160,7 @@ def getPrepSequence(ans, interactive):
 
 def getMainRepoSequence(ans, repos):
     seq = []
-    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts')], [],
+    seq.append(Task(repository.installFromRepos, lambda a: [repos] + [a.get('mounts'), a.get('kernel-alt')], [],
                 progress_scale=100,
                 pass_progress_callback=True,
                 progress_text="Installing %s..." % (", ".join([repo.name() for repo in repos]))))
@@ -179,6 +182,7 @@ def getRepoSequence(ans, repos):
 
 def getFinalisationSequence(ans):
     seq = [
+        Task(importYumAndRpmGpgKeys, A(ans, 'mounts'), []),
         Task(scripts.run_scripts, lambda a: ['packages-installed',  a['mounts']['root']], []),
         Task(writeResolvConf, A(ans, 'mounts', 'manual-hostname', 'manual-nameservers'), []),
         Task(writeMachineID, A(ans, 'mounts'), []),
@@ -200,6 +204,7 @@ def getFinalisationSequence(ans):
         Task(installBootLoader, A(ans, 'mounts', 'primary-disk', 'primary-partnum',
                                   'disk-label-suffix', 'bootloader-location',
                                   'serial-console', 'boot-serial', 'host-config',), []),
+        Task(postInstallAltKernel, A(ans, 'mounts', 'kernel-alt'), []),
         Task(touchSshAuthorizedKeys, A(ans, 'mounts'), []),
         Task(setRootPassword, A(ans, 'mounts', 'root-password'), [], args_sensitive=True),
         Task(setTimeZone, A(ans, 'mounts', 'timezone'), []),
@@ -307,6 +312,50 @@ def executeSequence(sequence, seq_name, answers, ui, cleanup):
             doCleanup(answers['cleanup'])
             del answers['cleanup']
 
+def determineRepositories(answers, answers_pristine, main_repositories, update_repositories):
+    def add_repos(main_repositories, update_repositories, repos, repo_gpgcheck, gpgcheck):
+        """Add repositories to the appropriate list, ensuring no duplicates,
+        that the main repository is at the beginning, and that the order of the
+        rest is maintained."""
+
+        for repo in repos:
+            if isinstance(repo, repository.UpdateYumRepository):
+                repo_list = update_repositories
+            else:
+                repo_list = main_repositories
+
+            if repo not in repo_list:
+                if repo.identifier() == MAIN_REPOSITORY_NAME:
+                    repo_list.insert(0, repo)
+                else:
+                    repo_list.append(repo)
+
+                if repo_list is main_repositories: # i.e., if repo is a "main repository"
+                    repo.setRepoGpgCheck(repo_gpgcheck)
+                    repo.setGpgCheck(gpgcheck)
+
+    default_repo_gpgcheck = answers.get('repo-gpgcheck', True)
+    default_gpgcheck = answers.get('gpgcheck', True)
+    # A list of sources coming from the answerfile
+    if 'sources' in answers_pristine:
+        for i in answers_pristine['sources']:
+            repos = repository.repositoriesFromDefinition(i['media'], i['address'])
+            repo_gpgcheck = default_repo_gpgcheck if i['repo_gpgcheck'] is None else i['repo_gpgcheck']
+            gpgcheck = default_gpgcheck if i['gpgcheck'] is None else i['gpgcheck']
+            add_repos(main_repositories, update_repositories, repos, repo_gpgcheck, gpgcheck)
+
+    # A single source coming from an interactive install
+    if 'source-media' in answers_pristine and 'source-address' in answers_pristine:
+        repos = repository.repositoriesFromDefinition(answers_pristine['source-media'], answers_pristine['source-address'])
+        add_repos(main_repositories, update_repositories, repos, default_repo_gpgcheck, default_gpgcheck)
+
+    for media, address in answers_pristine['extra-repos']:
+        repos = repository.repositoriesFromDefinition(media, address)
+        add_repos(main_repositories, update_repositories, repos, default_repo_gpgcheck, default_gpgcheck)
+
+    if not main_repositories or main_repositories[0].identifier() != MAIN_REPOSITORY_NAME:
+        raise RuntimeError("No main repository found")
+
 def performInstallation(answers, ui_package, interactive):
     logger.log("INPUT ANSWERS DICTIONARY:")
     prettyLogAnswers(answers)
@@ -370,9 +419,17 @@ def performInstallation(answers, ui_package, interactive):
     if answers['install-type'] == INSTALL_TYPE_REINSTALL and 'net-admin-bridge' not in answers:
         raise RuntimeError("Missing 'net-admin-bridge' in answers")
 
+    # A list needs to be used rather than a set since the order of updates is
+    # important.  However, since the same repository might exist in multiple
+    # locations or the same location might be listed multiple times, care is
+    # needed to ensure that there are no duplicates.
+    main_repositories = []
+    update_repositories = []
+    answers_pristine = answers.copy()
+    determineRepositories(answers, answers_pristine, main_repositories, update_repositories)
+
     # perform installation:
     prep_seq = getPrepSequence(answers, interactive)
-    answers_pristine = answers.copy()
     executeSequence(prep_seq, "Preparing for installation...", answers, ui_package, False)
 
     # install from main repositories:
@@ -386,48 +443,6 @@ def performInstallation(answers, ui_package, interactive):
 
     answers['installed-repos'] = {}
 
-    # A list needs to be used rather than a set since the order of updates is
-    # important.  However, since the same repository might exist in multiple
-    # locations or the same location might be listed multiple times, care is
-    # needed to ensure that there are no duplicates.
-    main_repositories = []
-    update_repositories = []
-
-    def add_repos(main_repositories, update_repositories, repos):
-        """Add repositories to the appropriate list, ensuring no duplicates,
-        that the main repository is at the beginning, and that the order of the
-        rest is maintained."""
-
-        for repo in repos:
-            if isinstance(repo, repository.UpdateYumRepository):
-                repo_list = update_repositories
-            else:
-                repo_list = main_repositories
-
-            if repo not in repo_list:
-                if repo.identifier() == MAIN_REPOSITORY_NAME:
-                    repo_list.insert(0, repo)
-                else:
-                    repo_list.append(repo)
-
-    # A list of sources coming from the answerfile
-    if 'sources' in answers_pristine:
-        for i in answers_pristine['sources']:
-            repos = repository.repositoriesFromDefinition(i['media'], i['address'])
-            add_repos(main_repositories, update_repositories, repos)
-
-    # A single source coming from an interactive install
-    if 'source-media' in answers_pristine and 'source-address' in answers_pristine:
-        repos = repository.repositoriesFromDefinition(answers_pristine['source-media'], answers_pristine['source-address'])
-        add_repos(main_repositories, update_repositories, repos)
-
-    for media, address in answers_pristine['extra-repos']:
-        repos = repository.repositoriesFromDefinition(media, address)
-        add_repos(main_repositories, update_repositories, repos)
-
-    if not main_repositories or main_repositories[0].identifier() != MAIN_REPOSITORY_NAME:
-        raise RuntimeError("No main repository found")
-
     handleMainRepos(main_repositories, answers)
     if update_repositories:
         handleRepos(update_repositories, answers)
@@ -438,7 +453,18 @@ def performInstallation(answers, ui_package, interactive):
         if r.accessor().canEject():
             r.accessor().eject()
 
-    if interactive and constants.HAS_SUPPLEMENTAL_PACKS:
+    # XCP-ng: so, very unfortunately we don't remember with precision why this was added and
+    # no commit message or comment can help us here.
+    # It may be related to the fact that the "all_repositories" above doesn't contain
+    # the installation CD-ROM or USB stick in the case of a netinstall.
+    # Question: why it is needed at all since there's no repository on the netinstall
+    # installation media?
+    if answers.get('netinstall'):
+        for device in getRemovableDeviceList():
+            util.runCmd2(['eject', device])
+
+    if interactive and (constants.HAS_SUPPLEMENTAL_PACKS or
+                        "driver-repos" in answers):
         # Add supp packs in a loop
         while True:
             media_ans = dict(answers_pristine)
@@ -538,6 +564,11 @@ def configureNTP(mounts, ntp_config_method, ntp_servers):
     else:
         rewriteNTPConf(mounts['root'], [])
 
+# Stop any multi-devices using the physical disks we require
+def stopBlockingSWRAIDDevices(physical_disks):
+    for device in getMdDevicesUsing(physical_disks):
+        diskutil.stopSWRAID(device)
+
 # Setup a new SW RAID device using mdadm
 # The primary-disk (/dev/md/*) is built from the physical disks provided in the answerfile
 def setupSWRAIDDevice(disk_label_suffix, physical_disks, guest_disks):
@@ -548,8 +579,7 @@ def setupSWRAIDDevice(disk_label_suffix, physical_disks, guest_disks):
         diskutil.stopSWRAID(primary_disk)
 
     # Stop any multi-devices using the physical disks we require
-    for device in getMdDevicesUsing(physical_disks):
-        diskutil.stopSWRAID(device)
+    stopBlockingSWRAIDDevices(physical_disks)
 
     # Zero any superblocks on the physical disks
     for disk in physical_disks:
@@ -769,7 +799,7 @@ def setActiveDiskPartition(disk, boot_partnum, primary_partnum):
 
 def getSRPhysDevs(primary_disk, storage_partnum, guest_disks):
     def sr_partition(disk):
-        if disk == primary_disk:
+        if disk == primary_disk or disk == '/dev/md127':
             return partitionDevice(disk, storage_partnum)
         else:
             return disk
@@ -1665,6 +1695,57 @@ def isSWRAIDSyncd(primary_disk):
         logger.log("Failed to check if SWRAID device is sync'd due to: " + str(ex))
         return False
 
+def importYumAndRpmGpgKeys(mounts):
+    # Python script that uses yum functions to import the GPG key for our repositories
+    import_yum_keys = """#!/bin/env python
+from __future__ import print_function
+from yum import YumBase
+
+def retTrue(*args, **kwargs):
+    return True
+
+base = YumBase()
+for repo in base.repos.repos.itervalues():
+    if repo.id.startswith('xcp-ng'):
+        print("*** Importing GPG key for repository %s - %s" % (repo.id, repo.name))
+        base.getKeyForRepo(repo, callback=retTrue)
+"""
+    internal_tmp_filepath = '/tmp/import_yum_keys.py'
+    external_tmp_filepath = mounts['root'] + internal_tmp_filepath
+    with open(external_tmp_filepath, 'w') as f:
+        f.write(import_yum_keys)
+    # bind mount /dev, necessary for NSS initialization without which RPM won't work
+    util.bindMount('/dev', "%s/dev" % mounts['root'])
+    try:
+        util.runCmd2(['chroot', mounts['root'], 'python', internal_tmp_filepath])
+        util.runCmd2(['chroot', mounts['root'], 'rpm', '--import', '/etc/pki/rpm-gpg/RPM-GPG-KEY-xcpng'])
+    finally:
+        util.umount("%s/dev" % mounts['root'])
+        os.unlink(external_tmp_filepath)
+
+def postInstallAltKernel(mounts, kernel_alt):
+    """ Install our alternate kernel. Must be called after the bootloader installation. """
+    if not kernel_alt:
+        logger.log('kernel-alt not installed')
+        return
+
+    util.bindMount("/proc", "%s/proc" % mounts['root'])
+    util.bindMount("/sys", "%s/sys" % mounts['root'])
+    util.bindMount("/dev", "%s/dev" % mounts['root'])
+
+    try:
+        rc, out = util.runCmd2(['chroot', mounts['root'], 'rpm', '-q', 'kernel-alt', '--qf', '%{version}'],
+                               with_stdout=True)
+        version = out
+        # Generate the initrd as it was disabled during initial installation
+        util.runCmd2(['chroot', mounts['root'], 'dracut', '-f', '/boot/initrd-%s.img' % version, version])
+
+        # Update grub
+        util.runCmd2(['chroot', mounts['root'], '/opt/xensource/bin/updategrub.py', 'add', 'kernel-alt', version])
+    finally:
+        util.umount("%s/dev" % mounts['root'])
+        util.umount("%s/sys" % mounts['root'])
+        util.umount("%s/proc" % mounts['root'])
 
 ################################################################################
 # OTHER HELPERS

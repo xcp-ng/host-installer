@@ -28,6 +28,18 @@ THIS_PLATFORM_VERSION = Version.from_string(version.PLATFORM_VERSION)
 XENSERVER_7_0_0 = Version([2, 1, 0]) # Platform version
 XENSERVER_MIN_VERSION = XENSERVER_7_0_0
 
+def is_rootfs_uefi(mount_point):
+    try:
+        with open(os.path.join(mount_point, 'etc', 'fstab'), 'r') as fstab:
+            for line in fstab:
+                m = re.search(r'^\s*[^#]+\s/boot/efi\s', line)
+                if m:
+                    return True
+    except FileNotFoundError:
+        pass
+
+    return False
+
 class ExistingInstallation:
     def __init__(self, primary_disk, boot_device, state_device):
         self.primary_disk = primary_disk
@@ -604,16 +616,40 @@ def findXenSourceBackups():
         b = None
         try:
             b = util.TempMount(p, 'backup-', ['ro'])
-            if os.path.exists(os.path.join(b.mount_point, '.xen-backup-partition')):
-                backup = XenServerBackup(p, b.mount_point)
-                logger.log("Found a backup: %s" % (repr(backup),))
-                if backup.version >= XENSERVER_MIN_VERSION and \
-                        backup.version <= THIS_PLATFORM_VERSION:
-                    backups.append(backup)
-        except:
+            if not os.path.exists(os.path.join(b.mount_point, '.xen-backup-partition')):
+                continue
+
+            backup = XenServerBackup(p, b.mount_point)
+            logger.log("Found a backup: %s" % (repr(backup),))
+
+            # Don't restore a BIOS backup with a UEFI installer and conversely
+            backup_is_uefi = is_rootfs_uefi(b.mount_point)
+            if backup_is_uefi != constants.UEFI_INSTALLER:
+                logger.log("findXenSourceBackups: ignoring, installer mode (%s) does not match backup boot mode (%s)" %
+                           ("uefi" if constants.UEFI_INSTALLER else "legacy BIOS", "uefi" if backup_is_uefi else "legacy BIOS" ))
+                raise StopIteration()
+
+            if backup.version < XENSERVER_MIN_VERSION:
+                logger.log("findXenSourceBackups: ignoring, platform too old: %s < %s" %
+                           (backup.version, XENSERVER_MIN_VERSION))
+                continue
+            if backup.version > THIS_PLATFORM_VERSION:
+                logger.log("findXenSourceBackups: ignoring later platform: %s > %s" %
+                           (backup.version, THIS_PLATFORM_VERSION))
+                continue
+            if not os.path.exists(backup.root_disk):
+                logger.error("findXenSourceBackups: PRIMARY_DISK=%r does not exist" %
+                             (backup.root_disk,))
+                continue
+
+            backups.append(backup)
+
+        except Exception as ex:
+            logger.info("findXenSourceBackups caught exception for partition %s", p, exc_info=1)
             pass
-        if b:
-            b.unmount()
+        finally:
+            if b:
+                b.unmount()
 
     return backups
 
@@ -629,7 +665,7 @@ def findXenSourceProducts():
     for disk_device in diskutil.getQualifiedDiskList():
         inst = None
         try:
-            disk = diskutil.probeDisk(disk_device)
+            disk = diskutil.probeDisk(disk_device, raid_members = diskutil.RAID_MEMBERS_DONT_PROBE)
             if disk.root[0] == diskutil.INSTALL_RETAIL:
                 inst = ExistingRetailInstallation(disk_device, disk.boot[1], disk.root[1], disk.state[1], disk.storage)
         except Exception as e:

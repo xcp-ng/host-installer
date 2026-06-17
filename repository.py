@@ -239,12 +239,14 @@ class MainYumRepository(YumRepositoryWithInfo):
     """Represents a Yum repository containing the main XenServer installation."""
 
     INFO_FILENAME = ".treeinfo"
-    _targets = ['@xenserver_base', '@xenserver_dom0']
+    _targets = ['xcp-ng-deps']
 
     def __init__(self, accessor):
         super(MainYumRepository, self).__init__(accessor)
         self._identifier = MAIN_REPOSITORY_NAME
         self.keyfiles = []
+        self._repo_gpg_check = True
+        self._gpg_check = True
 
         def get_name_version(config_parser, section, name_key, vesion_key):
             name, version = None, None
@@ -315,10 +317,10 @@ class MainYumRepository(YumRepositoryWithInfo):
                 outfh = open(key_path, "wb")
                 outfh.write(infh.read())
                 return """
-gpgcheck=1
-repo_gpgcheck=1
+gpgcheck=%s
+repo_gpgcheck=%s
 gpgkey=file://%s
-""" % (key_path)
+""" % (int(self._gpg_check), int(self._repo_gpg_check), key_path)
             finally:
                 if infh:
                     infh.close()
@@ -354,6 +356,13 @@ gpgkey=file://%s
             branding['product-build'] = self._build_number
         return branding
 
+    def setRepoGpgCheck(self, value):
+        logger.log("%s: setRepoGpgCheck(%s)" % (self, value))
+        self._repo_gpg_check = value
+
+    def setGpgCheck(self, value):
+        logger.log("%s: setGpgCheck(%s)" % (self, value))
+        self._gpg_check = value
 
 class UpdateYumRepository(YumRepositoryWithInfo):
     """Represents a Yum repository containing packages and associated meta data for an update."""
@@ -806,6 +815,7 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
         count = 0
         total = 0
         verify_count = 0
+        gpg_error_message = None
         progressLine = re.compile(r'.*?(\d+)/(\d+)$')
         progressLineV5 = re.compile(r'^\[ *(\d+)/(\d+)\] (Installing|Upgrading) ')
 
@@ -844,6 +854,27 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
                 verify_count += 1
                 # verification, from 90% to 100%
                 progress_callback(90 + int((verify_count * 10.0) / total))
+            elif ' in import_key_to_pubring' in line:
+                gpg_error_message = "Signature key import failed"
+            # add any other instance of uncaught GpgmeError before this like
+            elif 'gpgme.GpgmeError: ' in line:
+                gpg_error_message = "Cryptography-related yum crash"
+
+            elif re.search("Couldn't open file [^ ]*/repodata/repomd.xml.asc", line):
+                # would otherwise be mistaken for "pubring import" !?
+                gpg_error_message = "No signature on repository metadata"
+            elif 'repomd.xml signature could not be verified' in line:
+                gpg_error_message = "Repository signature verification failure"
+
+            elif match:= re.search("Public key for ([^ ]*.rpm) is not installed", stderr):
+                gpg_error_message = "Missing key for %s" % (match.group(1),)
+            elif match := re.search("Package ([^ ]*.rpm) is not signed", stderr):
+                gpg_error_message = "Package not signed: %s" % (match.group(1),)
+            elif match := re.search(r" ([^ ]*): \[Errno [0-9]*\] No more mirrors to try", stderr):
+                # rpm not found or corrupted/re-signed/etc
+                gpg_error_rpm_not_found = match.group(1)
+                gpg_error_message = "Cannot find valid rpm for %s" % (match.group(1),)
+
             else:
                 m = progressLineV5.match(line)
                 total = 0
@@ -855,13 +886,16 @@ def installFromYum(targets, mounts, progress_callback, cachedir):
                 logger.log("DNF exited with %d" % rv)
             else:
                 logger.log("DNF killed by signal: %s" % (signal.strsignal(-rv),))
-            raise ErrorInstallingPackage("Error installing packages")
+            if gpg_error_message is None:
+                gpg_error_message = "Error installing packages"
+            raise ErrorInstallingPackage(gpg_error_message)
 
         shutil.rmtree(os.path.join(mounts['root'], cachedir), ignore_errors=True)
 
-def installFromRepos(progress_callback, repos, mounts):
+def installFromRepos(progress_callback, repos, mounts, kernel_alt):
     """Install from a stacked set of repositories"""
 
+    logger.log("installFromRepos, kernel_alt=%s" % (kernel_alt,))
     cachedir = "var/cache/yum/installer"
     for repo in repos:
         repo._accessor.start()
@@ -894,6 +928,8 @@ baseurl=%s
             if repo._targets:
                 targets += repo._targets
         targets = list(set(targets))
+        if kernel_alt:
+            targets.append('kernel-alt')
 
         installFromYum(targets, mounts, progress_callback, cachedir)
         repos[0].enableInitrdCreation()

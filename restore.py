@@ -23,7 +23,7 @@ def restoreFromBackup(backup, progress=lambda x: ()):
     bootlabel = None
     disk = backup.root_disk
     tool = PartitionTool(disk)
-    dsk = diskutil.probeDisk(disk)
+    dsk = diskutil.probeDisk(disk, raid_members = diskutil.RAID_MEMBERS_PROBE_MEMBER)
     create_sr_part = dsk.storage[0] is not None
     primary_partnum, backup_partnum, _, boot_partnum, logs_partnum, swap_partnum = backend.partitionTargetDisk(disk, None, constants.PRESERVE_IF_UTILITY, create_sr_part)
 

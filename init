@@ -90,7 +90,7 @@ def sig_term(x, y):
 def main(args):
     # log to tty3
     logger.openLog('/dev/tty3')
-    logger.openLog('/tmp/install-log')
+    logger.openLog('/tmp/install-log', level=logger.logging.DEBUG)
 
     tty = None
     signal.signal(signal.SIGTERM, sig_term)

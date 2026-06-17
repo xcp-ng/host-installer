@@ -525,7 +525,11 @@ STORAGE_LVM = 1
 STORAGE_OTHER = 2
 STORAGE_GFS2 = 3
 
-def probeDisk(device):
+RAID_MEMBERS_PROBE_MEMBER = "probe member"
+RAID_MEMBERS_DONT_PROBE = "don't probe"
+RAID_MEMBERS_PROBE_RAID = "probe raid"
+
+def probeDisk(device, raid_members):
     """Examines device and reports the apparent presence of a XenServer installation and/or related usage
     Returns a Disk object with XenServer partitions and state (boot, root, storage, logs, swap)
 
@@ -539,9 +543,22 @@ def probeDisk(device):
         swap is a tuple of True or False and the partition device
     """
 
-    logger.debug("probeDisk(%r)", device)
+    logger.debug("probeDisk(%r, raid_members = %r)", device, raid_members)
+
     disk = Disk(device)
     possible_srs = set()
+
+    # if part of assembled raid, must check raid instead
+    raids = getMdDevicesUsing([device])
+    if raid_members == RAID_MEMBERS_DONT_PROBE and raids:
+        logger.info("%s is part of a raid device, not probing further", device)
+        return disk
+    if len(raids) > 1:
+        raise RuntimeError("Device %s is used by several MD devices (%s), fix this first"
+                           % (devices, ', '.join(raids)))
+    if raid_members == RAID_MEMBERS_PROBE_RAID and raids:
+        logger.info("%s is part of a raid device, probing %s", device, raids[0])
+        return probeDisk(raids[0], raid_members = RAID_MEMBERS_PROBE_RAID)
 
     tool = PartitionTool(device)
     tool.dump()
