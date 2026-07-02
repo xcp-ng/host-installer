@@ -626,7 +626,7 @@ def setupSWRAIDDevice(disk_label_suffix, physical_disks, guest_disks):
 
     # Create multi-device
     members = [physical_disks[0], 'missing'] if len(physical_disks) == 1 else physical_disks
-    rc = util.runCmd2(['mdadm', '--create', primary_disk, '--size=%sG' % swraidSizeGB, '--metadata=1.0', '--level=mirror', '--raid-devices=2', '--run'] + members)
+    rc = util.runCmd2(['mdadm', '--create', primary_disk, '--size=%sG' % swraidSizeGB, '--metadata=1.0', '--level=mirror', '--raid-devices=%s' % len(members), '--run'] + members)
     if rc != 0:
         raise RuntimeError("Failed to create SWRAID device: '%s' from initial devices: '%s'" % (primary_disk, ','.join(members)))
 
