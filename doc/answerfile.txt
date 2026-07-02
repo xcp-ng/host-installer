@@ -250,6 +250,8 @@ Format of 'source' and 'driver-source'
     This is a legacy XCP-ng-specific syntax, using the "swraid"
     attribute on <primary-disk> is the official way.
 
+    Compared with "swraid", this syntax allows to specify more than
+    two disks, but does not allow to specify a missing disk.
 
   <guest-disks>
     <guest-disk>dev</guest-disk>*

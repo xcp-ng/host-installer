@@ -340,7 +340,7 @@ class Answerfile:
             legacy_raid[disk_device] = disks
 
         if legacy_raid:
-            assert len(legacy_raid) == 1, "Building more than one RAID is no supported any more"
+            assert len(legacy_raid) == 1, "Building more than one RAID is not supported any more"
             # FIXME: the following be problematic, legacy raid had implicit localhost:127 name
             results['primary-disk'] = ""  # Populated with disk-label-suffix during installer prep
             results['physical-disks'] = next(iter(legacy_raid.values()))
