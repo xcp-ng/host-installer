@@ -764,15 +764,33 @@ def check_sr_space(answers):
     return EXIT
 
 def select_guest_disks(answers):
-    diskEntries = ["RAID"] if answers.get('swraid', False) else []
-    diskEntries += sorted_disk_list()
+    diskEntries = sorted_disk_list()
 
-    # CA-38329: filter out device mapper nodes (except primary disk) as these won't exist
-    # at XenServer boot and therefore cannot be added as physical volumes to Local SR.
-    # Also, since the DM nodes are multipathed SANs it doesn't make sense to include them
-    # in the "Local" SR.
-    allowed_in_local_sr = lambda dev: (dev == answers['primary-disk']) or (not isDeviceMapperNode(dev))
+    logger.info("select_guest_disks: sorted_disk_list=%s isdm=%s primary-disk=%s physical-disks=%s",
+                diskEntries, [d for d in diskEntries if isDeviceMapperNode(d)],
+                answers['primary-disk'], answers['physical-disks'])
+    def allowed_in_local_sr(dev):
+        # primary disk is always allowed, to use the extra free space
+        if dev == answers['primary-disk']:
+            return True
+        # physical disks making up a raid should not be shown (but the
+        # same physical-disks answer is also used outside of raid
+        # context)
+        if answers.get('swraid', False) and dev in answers['physical-disks']:
+            return False
+        # CA-38329: filter out device mapper nodes (except primary disk) as these won't exist
+        # at XenServer boot and therefore cannot be added as physical volumes to Local SR.
+        # Also, since the DM nodes are multipathed SANs it doesn't make sense to include them
+        # in the "Local" SR.
+        if isDeviceMapperNode(dev):
+            return False
+        return True
+
     diskEntries = list(filter(allowed_in_local_sr, diskEntries))
+    logger.info("select_guest_disks: filtered=%s", diskEntries)
+
+    if answers.get('swraid', False):
+        diskEntries = ["RAID"] + diskEntries
 
     if len(diskEntries) == 0 or constants.CC_PREPARATIONS:
         answers['guest-disks'] = []
