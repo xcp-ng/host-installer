@@ -624,16 +624,11 @@ def setupSWRAIDDevice(disk_label_suffix, physical_disks, guest_disks):
     sizeGB = int(out.strip()) / (1024 ** 3)
     swraidSizeGB = int(sizeGB * 0.95)
 
-    # Create multi-device with the first physical disk
-    rc = util.runCmd2(['mdadm', '--create', primary_disk, '--size=%sG' % swraidSizeGB, '--metadata=1.0', '--level=mirror', '--raid-devices=2', '--run', physical_disks[0], 'missing'])
+    # Create multi-device
+    members = [physical_disks[0], 'missing'] if len(physical_disks) == 1 else physical_disks
+    rc = util.runCmd2(['mdadm', '--create', primary_disk, '--size=%sG' % swraidSizeGB, '--metadata=1.0', '--level=mirror', '--raid-devices=2', '--run'] + members)
     if rc != 0:
-        raise RuntimeError("Failed to create SWRAID device: '%s' from initial device: '%s'" % (primary_disk, physical_disks[0]))
-
-    if len(physical_disks) == 2:
-        # Add second disk to SW RAID device
-        rc = util.runCmd2(['mdadm', '--manage', primary_disk, '--add', physical_disks[1], '--run'])
-        if rc != 0:
-            raise RuntimeError("Failed to add second disk: '%s' to SWRAID device: '%s'" % (physical_disks[1], primary_disk))
+        raise RuntimeError("Failed to create SWRAID device: '%s' from initial devices: '%s'" % (primary_disk, ','.join(members)))
 
     with open('/proc/sys/dev/raid/speed_limit_max', 'w') as speed_file:
         speed_file.write(str(constants.swraid_speed_write_max))
