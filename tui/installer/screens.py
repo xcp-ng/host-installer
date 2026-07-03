@@ -603,6 +603,12 @@ def raid_array_ui(answers):
     tui.screen.popWindow()
     tui.screen.popHelpLine()
 
+    if buttons.buttonPressed(rc) == 'back':
+        answers['swraid'] = False
+        answers['physical-disks'] = []
+        logger.info("raid_array_ui: cancelled selection")
+        return REPEAT_STEP
+
     answers['swraid'] = True
     answers['physical-disks'] = cbt.getSelection()
     answers['primary-disk'] = ""
