@@ -661,6 +661,11 @@ def select_primary_disk(answers):
     button = None
     diskEntries = sorted_disk_list()
 
+    # swraid is selected from the raid dialog, if we ever get back
+    # here we must not keep any previous choice, because user canceled
+    # that choice by selecting "Back"
+    answers['swraid'] = False
+
     entries = []
     min_primary_disk_size = constants.min_primary_disk_size
 
