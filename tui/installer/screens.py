@@ -566,7 +566,7 @@ def setup_runtime_networking(answers):
     return tui.network.requireNetworking(answers, defaults)
 
 def raid_array_ui(answers):
-    disk_entries = [e for e in sorted_disk_list() if not diskutil.is_raid(e)]
+    disk_entries = sorted_disk_list()
     raid_disks = [de for de in disk_entries if diskutil.is_raid(de)]
     raid_slaves = [slave for master in raid_disks for slave in diskutil.getDeviceSlaves(master)]
     entries = []
