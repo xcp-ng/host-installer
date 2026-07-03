@@ -659,8 +659,7 @@ Are you sure you want to continue?"""
 # select drive to use as the Dom0 disk:
 def select_primary_disk(answers):
     button = None
-    diskEntries = ["RAID"] if answers.get('swraid', False) else []
-    diskEntries += sorted_disk_list()
+    diskEntries = sorted_disk_list()
 
     entries = []
     min_primary_disk_size = constants.min_primary_disk_size
