@@ -393,6 +393,9 @@ def requireNetworking(answers, defaults=None, msg=None, keys=['net-admin-interfa
         if not netutil.interfaceUp(ifaceName):
             return display_error()
 
+        # Start NTP to use /run/chrony-helper/added_servers or hardcoded ones
+        util.runCmd2(['systemctl', 'restart', 'chronyd'])
+
         if answers and type(answers) == dict:
             # write out results
             answers[interface_key] = conf_dict['interface']
