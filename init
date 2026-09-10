@@ -9,6 +9,7 @@ import os
 import os.path
 import signal
 import subprocess
+import time
 
 # user interface:
 import tui
@@ -227,6 +228,17 @@ def main(args):
         netutil.setAllLinksUp()
     if init_network:
         configureNetworking(ui, answer_device, answer_config)
+
+    logger.log("Checking if the system's date is too far in the past")
+    try:
+        elapsed = time.time() - os.path.getmtime('/')
+        if elapsed < - 60 * 60 * 24:  # one day offset (for worst timezone)
+            logger.log("Warning: system clock is probably too late (%d), "
+                       "please verify your system's date"
+                       % elapsed)
+    except Exception as e:
+        logger.log("Warning: could not perform clock check: %s"
+                   % str(e))
 
     logger.log("Starting installation/upgrade/restore")
 
