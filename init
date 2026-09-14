@@ -82,6 +82,8 @@ def configureNetworking(ui, device, config):
     for i in iface_to_start:
         netutil.ifup(netcfg[i].getInterfaceName(i))
         netcfg[i].waitUntilUp(i)
+        # Start NTP to use /run/chrony-helper/added_servers or hardcoded ones
+        util.runCmd2(['systemctl', 'restart', 'chronyd'])
 
     if ui:
         ui.progress.clearModelessDialog()
