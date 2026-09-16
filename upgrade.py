@@ -454,6 +454,10 @@ class ThirdGenUpgrader(Upgrader):
                              'attr': {'mode': 0o0600, 'group': 'root'}})
         restore_list.append({'dir': 'etc/ssh', 're': re.compile(r'.*/ssh_host_.+_key\.pub$')})
 
+        # Preserve custom sshd/ssh drop-in configuration across upgrades
+        restore_list.append({'dir': 'etc/ssh/sshd_config.d'})
+        restore_list.append({'dir': 'etc/ssh/ssh_config.d'})
+
         restore_list += [ 'etc/sysconfig/network']
         restore_list.append({'dir': 'etc/sysconfig/network-scripts', 're': re.compile(r'.*/ifcfg-[a-z0-9.]+')})
 
