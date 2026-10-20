@@ -194,17 +194,20 @@ class ExistingInstallation:
             lines = fd.readlines()
             fd.close()
             ntps = []
+            has_sourcedir = False
             for line in lines:
                 if line.startswith("server "):
                     s = line[7:].split()[0].strip()
                     ntps.append(s)
+                elif line.startswith("sourcedir "):
+                    has_sourcedir = True
             results['ntp-servers'] = ntps
             # ntp-config-method should be set as follows:
             # 'dhcp' if dhcp was in use, regardless of server configuration
             # 'manual' if we had existing NTP servers defined (other than default servers)
             # 'default' if we had only default NTP servers defined
             # 'none' if no NTP servers are defined
-            if self._check_dhcp_ntp_status():
+            if has_sourcedir:
                 results['ntp-config-method'] = 'dhcp'
             elif ntps:
                 results['ntp-config-method'] = 'manual'
@@ -460,12 +463,6 @@ class ExistingInstallation:
         self.unmount_boot()
 
         return results
-
-    def _check_dhcp_ntp_status(self):
-        """Validate if DHCP was in use for NTP configuration"""
-        # chrony.sh executable indicates using DHCP for NTP
-        chrony_script = self.join_state_path('etc/dhcp/dhclient.d/chrony.sh')
-        return os.path.exists(chrony_script) and bool(os.stat(chrony_script).st_mode & stat.S_IXUSR)
 
     def mount_boot(self, ro=True):
         opts = None

@@ -214,7 +214,7 @@ def getFinalisationSequence(ans):
             Task(configureSRMultipathing, A(ans, 'mounts', 'primary-disk'), []),
             ]
 
-    seq.append(Task(setDHCPNTP, A(ans, "mounts", "ntp-config-method"), []))
+    seq.append(Task(setDHCPNTP, A(ans, "mounts"), []))
     seq.append(Task(configureNTP, A(ans, 'mounts', 'ntp-config-method', 'ntp-servers'), []))
     # complete upgrade if appropriate:
     if ans['install-type'] == constants.INSTALL_TYPE_REINSTALL:
@@ -463,17 +463,19 @@ def performInstallation(answers, ui_package, interactive):
     fin_seq = getFinalisationSequence(answers)
     executeSequence(fin_seq, "Completing installation...", answers, ui_package, True)
 
-def rewriteNTPConf(root, ntp_servers):
+def rewriteNTPConf(root, dhcp, ntp_servers):
     ntpsconf = open("%s/etc/chrony.conf" % root, 'r')
     lines = ntpsconf.readlines()
     ntpsconf.close()
 
-    lines = [x for x in lines if not x.startswith('server ')]
+    lines = [x for x in lines if not x.startswith('server ') and not x.startswith('sourcedir ')]
 
     ntpsconf = open("%s/etc/chrony.conf" % root, 'w')
     for line in lines:
         ntpsconf.write(line)
 
+    if dhcp:
+        ntpsconf.write("sourcedir /run/chrony-dhcp")
     if ntp_servers:
         for server in ntp_servers:
             ntpsconf.write("server %s iburst\n" % server)
@@ -497,28 +499,24 @@ def setTimeManually(localtime, set_time_dialog_dismissed, timezone):
     util.setLocalTime(timestr, timezone=timezone)
     assert util.runCmd2(['hwclock', '--utc', '--systohc']) == 0
 
-def setDHCPNTP(mounts, ntp_config_method):
+def setDHCPNTP(mounts):
+    # migration: ensure chrony.sh has +x
     script = os.path.join(mounts['root'], "etc/dhcp/dhclient.d/chrony.sh")
     oldPermissions = os.stat(script).st_mode
-
-    if ntp_config_method == "dhcp":
-        newPermissions = oldPermissions | (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)  # Add execute permission
-    else:
-        newPermissions = oldPermissions & ~(stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)  # Remove execute permission
-
+    newPermissions = oldPermissions | (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)  # Add execute permission
     os.chmod(script, newPermissions)
 
 def configureNTP(mounts, ntp_config_method, ntp_servers):
     # If NTP servers were specified, update the NTP config file:
     if ntp_config_method in ("dhcp", "manual"):
-        rewriteNTPConf(mounts['root'], ntp_servers)
+        rewriteNTPConf(mounts['root'], ntp_config_method == "dhcp", ntp_servers)
 
     if ntp_config_method != "none":
         # now turn on the ntp service:
         util.runCmd2(['chroot', mounts['root'], 'systemctl', 'enable', 'chronyd'])
         util.runCmd2(['chroot', mounts['root'], 'systemctl', 'enable', 'chrony-wait'])
     else:
-        rewriteNTPConf(mounts['root'], [])
+        rewriteNTPConf(mounts['root'], False, [])
 
 # Setup a new SW RAID device using mdadm
 # The primary-disk (/dev/md/*) is built from the physical disks provided in the answerfile
