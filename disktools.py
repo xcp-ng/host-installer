@@ -1382,6 +1382,39 @@ def getMdDevicesUsing(physical_disks):
         pass
     return nodes
 
+SYS_CLASS_BLOCK = '/sys/class/block'
+PROC_MDSTAT = '/proc/mdstat'
+
+def _wholeDiskOf(member):
+    """Returns the name of the disk holding block device `member` (e.g. nvme0n1 for
+    nvme0n1p2), or `member` itself when it is not a partition."""
+    sysdir = os.path.realpath(os.path.join(SYS_CLASS_BLOCK, member))
+    if os.path.exists(os.path.join(sysdir, 'partition')):
+        return os.path.basename(os.path.dirname(sysdir))
+    return member
+
+def getMdDevicesBlocking(physical_disks):
+    """Returns the MD devices, active or not, with a member on one of
+    `physical_disks`: the disk itself or one of its partitions. Any of them keeps
+    the disk busy, so that its partition table cannot be rewritten."""
+    nodes = []
+    disks = set(os.path.basename(os.path.realpath(disk)) for disk in physical_disks)
+    try:
+        with open(PROC_MDSTAT) as fh:
+            for line in fh:
+                line = line.rstrip()
+                if not ' : ' in line:
+                    continue
+                name, _, state, rest = (line.split(None, 3) + [''])[:4]
+                if state not in ('active', 'inactive'):
+                    continue
+                members = re.findall(r'(\S+)\[\d+\]', rest)
+                if any(_wholeDiskOf(member) in disks for member in members):
+                    nodes.append('/dev/' + name)
+    except IOError:
+        pass
+    return nodes
+
 
 class DeviceMounter:
     class Mount:

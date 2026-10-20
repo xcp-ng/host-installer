@@ -606,9 +606,9 @@ def configureNTP(mounts, ntp_config_method, ntp_servers):
     else:
         rewriteNTPConf(mounts['root'], [])
 
-# Stop any multi-devices using the physical disks we require
+# Stop any multi-devices using the physical disks we require, or their partitions
 def stopBlockingSWRAIDDevices(physical_disks):
-    for device in getMdDevicesUsing(physical_disks):
+    for device in getMdDevicesBlocking(physical_disks):
         diskutil.stopSWRAID(device)
 
 # Setup a new SW RAID device using mdadm
