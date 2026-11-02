@@ -516,7 +516,6 @@ def configureNTP(mounts, ntp_config_method, ntp_servers):
     if ntp_config_method != "none":
         # now turn on the ntp service:
         util.runCmd2(['chroot', mounts['root'], 'systemctl', 'enable', 'chronyd'])
-        util.runCmd2(['chroot', mounts['root'], 'systemctl', 'enable', 'chrony-wait'])
     else:
         rewriteNTPConf(mounts['root'], [])
 
