@@ -64,7 +64,7 @@ def writeNetInterfaceFiles(configuration):
     for iface in configuration:
         configuration[iface].writeSystemdNetworkdConfig(iface)
 
-def reloadNetwork(timeout=20):
+def reloadNetwork(timeout=120):
     """ Use networkctl to reload the configuration """
     util.runCmd2(["networkctl", "reload"])
     # Command return immediately, wait until network is up
