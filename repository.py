@@ -239,7 +239,7 @@ class MainYumRepository(YumRepositoryWithInfo):
     """Represents a Yum repository containing the main XenServer installation."""
 
     INFO_FILENAME = ".treeinfo"
-    _targets = ['@xenserver_base', '@xenserver_dom0']
+    _targets = ['xcp-ng-deps']
 
     def __init__(self, accessor):
         super(MainYumRepository, self).__init__(accessor)
@@ -800,6 +800,7 @@ def findRepositoriesOnMedia(drivers=False):
 def installFromYum(targets, mounts, progress_callback, cachedir):
         dnf_cmd = ['dnf', '--releasever=/', '--config=/root/yum.conf',
                        '--installroot', mounts['root'],
+                       '--rpmverbosity=debug',
                        'install', '-y'] + targets
         logger.log("Running : %s" % ' '.join(dnf_cmd))
         p = subprocess.Popen(dnf_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
@@ -896,6 +897,9 @@ baseurl=%s
         targets = list(set(targets))
 
         installFromYum(targets, mounts, progress_callback, cachedir)
+        # for some reason installing at the same time as some undetermined
+        # other does not work, silently (hail DNF/RPM :sob:)
+        installFromYum(['crypto-policies'], mounts, progress_callback, cachedir)
         repos[0].enableInitrdCreation()
     finally:
         for repo in repos:

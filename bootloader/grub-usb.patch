@@ -1,9 +1,9 @@
---- /EFI/xenserver/grub.cfg	2024-03-18 13:30:12.000000000 +0100
-+++ /EFI/xenserver/grub-usb.cfg	2024-03-18 13:30:12.000000000 +0100
+--- /EFI/almalinux/grub.cfg	2024-03-18 13:30:12.000000000 +0100
++++ /EFI/almalinux/grub-usb.cfg	2024-03-18 13:30:12.000000000 +0100
 @@ -1,5 +1,6 @@
  set default="0"
  set timeout=5
 +search --file --set /install.img
  
  menuentry "install" {
-     xen_hypervisor /boot/xen.efi dom0_max_vcpus=1-16 dom0_mem=max:8192M com1=115200,8n1 console=com1,vga
+     multiboot2 /boot/xen.efi dom0_max_vcpus=1-16 dom0_mem=max:8192M com1=115200,8n1 console=com1,vga
