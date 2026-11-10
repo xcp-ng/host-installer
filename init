@@ -77,7 +77,7 @@ def configureNetworking(ui, device, config):
         netcfg[i].writeSystemdNetworkdConfig(i)
 
     # Reload network to apply the configuration
-    netutil.reloadNetwork()
+    netutil.reloadNetwork(timeout=120)
 
     if ui:
         ui.progress.clearModelessDialog()
